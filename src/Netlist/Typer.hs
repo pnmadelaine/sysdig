@@ -26,7 +26,7 @@ check_equation sizes (id, exp) =
                      && 1 == size_arg b && j == size_arg d
                      && j == n
     Econcat a b      -> n == size_arg a + size_arg b
-    Eslice i j a     -> j >= size_arg a && n == j-i
+    Eslice i j a     -> j <= size_arg a && n == j-i
     Eselect i a      -> i < size_arg a
 
 aux_eqs sizes ins eqs (id,exp) =
