@@ -15,10 +15,13 @@ maintainer:          paul-nicolas.madelaine@ens.fr
 build-type:          Simple
 cabal-version:       >=1.10
 
-executable sysdig
+executable simulator
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Show
+                     , Netlist.Scheduler, Netlist.Simulator
+                     , Netlist.Typer, Graph
   -- other-extensions:    
-  build-depends:       base >=4.10 && <4.11
+  build-depends:       base >=4.8 && <4.11, containers, filepath, parsec
   hs-source-dirs:      src
   default-language:    Haskell2010
+
