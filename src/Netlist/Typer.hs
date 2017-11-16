@@ -1,4 +1,4 @@
-module Netlist.Typer (verify_netlist) where
+module Netlist.Typer (verify) where
 
 import Netlist.Ast
 import qualified Data.List as List
@@ -69,8 +69,8 @@ aux_args eqs ins (id,_) =
   else
     Left $ "\"" ++ id ++ "\" must be defined by an equation"
 
-verify_netlist :: Netlist -> Either String (Map.Map Ident Expression)
-verify_netlist net = do
+verify :: Netlist -> Either String (Map.Map Ident Expression)
+verify net = do
   sizes <- foldM aux_vars            Map.empty (var net)
   ins   <- foldM (aux_ins sizes)     Set.empty (input net)
   outs  <- foldM (aux_outs sizes)    Set.empty (output net)

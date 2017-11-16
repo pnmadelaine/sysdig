@@ -102,7 +102,7 @@ main = do (options, files) <- getArgs >>= get_options
           let output_path = dropExtension file_path ++ "_sch" ++ ".net" 
           code <- readFile file_path
           let net = read_netlist code
-          case verify_netlist net of
+          case verify net of
             Left err -> putStrLn err
             Right _  -> 
               case schedule net of
