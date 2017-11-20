@@ -39,10 +39,10 @@ string_of_var_with_size (id, 1) = id
 string_of_var_with_size (id, n) = id ++ ":" ++ show n
 
 string_of_netlist netlist = 
-     "INPUT "  ++ join ", " (input netlist) ++ "\n"
-  ++ "OUTPUT " ++ join ", " (output netlist) ++ "\n"
-  ++ "VAR "    ++ join ", " (List.map string_of_var_with_size (var netlist)) ++ "\n"
-  ++ "IN\n"    ++ join "\n" (List.map string_of_equation (equations netlist)) 
+     "INPUT "  ++ join ", " (netlist_in netlist) ++ "\n"
+  ++ "OUTPUT " ++ join ", " (netlist_out netlist) ++ "\n"
+  ++ "VAR "    ++ join ", " (List.map string_of_var_with_size (netlist_var netlist)) ++ "\n"
+  ++ "IN\n"    ++ join "\n" (List.map string_of_equation (netlist_eq netlist)) 
   ++ "\n"
 
 instance Show Netlist where

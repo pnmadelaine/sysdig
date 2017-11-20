@@ -76,12 +76,12 @@ read_options (n,rom,_)   (LoadRam filepath:os) = do ram <- read_file filepath
                                                     read_options (n,rom,ram) os
 read_options acc         (_:os)                = read_options acc os
 
-read_input :: Netlist -> IO (Map.Map Ident Value)
-read_input net = do
+read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
+read_netlist_in net = do
   putStrLn "---- Input ----- "
   let f m (i,n) = Map.insert i (List.replicate (fromInteger n) False) m 
-  let m = List.foldl f Map.empty (var net) 
-  foldM aux m (input net)
+  let m = List.foldl f Map.empty (netlist_var net) 
+  foldM aux m (netlist_in net)
     where aux m i = do putStr (i++":")
                        hFlush stdout
                        s <- getLine -- TODO verify length
@@ -113,7 +113,7 @@ main = do (options, files) <- getArgs >>= get_options
                     return ()
                   else do
                     (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options 
-                    vars <- read_input net
+                    vars <- read_netlist_in net
                     (ram', vars') <- simulate n rom ram vars net_sch 
-                    print_vars vars' (output net)
+                    print_vars vars' (netlist_out net)
 

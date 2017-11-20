@@ -10,7 +10,7 @@ import Data.Maybe (fromJust)
 import Netlist.Ast
 import Netlist.Show
 
-data Formula = Fcst Value
+data Formula = Fcst Bool
              | Fnot Formula
              | Fop BinOp Formula Formula
              | Fselect Integer Wire
@@ -32,8 +32,8 @@ a \/ b = Fop Or a b
 (/\) :: Formula -> Formula -> Formula
 a /\ b = Fop And a b
 
-xor :: Formula -> Formula -> Formula
-xor a b = Fop Xor a b
+(<>) :: Formula -> Formula -> Formula
+a <> b = Fop Xor a b
 
 nand :: Formula -> Formula -> Formula
 nand a b = Fop Nand a b
@@ -123,7 +123,7 @@ add_formula_to_netmap a net =
            Fselect i w -> add_wire_to_netmap w net
       in
       let exp = case a of
-           Fcst v      -> Earg (ArgCst v)
+           Fcst v      -> Earg (ArgCst [v])
            Fnot a      -> let id = n_form net' ! a in
                           Enot (ArgVar id)
            Fop op a b  -> let id1 = n_form net' ! a in
@@ -170,10 +170,10 @@ build inputs outputs defs =
                                 (n_size netmap') 
                                 (n_form netmap')
   in
-  Netlist { equations = Map.toAscList (n_eq netmap')
-          , input     = List.map fst inputs
-          , output    = List.map fst outputs
-          , var       = Map.toAscList var_map
+  Netlist { netlist_eq  = Map.toAscList (n_eq netmap')
+          , netlist_in  = List.map fst inputs
+          , netlist_out = List.map fst outputs
+          , netlist_var = Map.toAscList var_map
           }
 
 --

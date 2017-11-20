@@ -74,7 +74,7 @@ simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> IO (Ram, Vars)
 simulate 0 _ ram regs net = do
   return (ram,regs)
 simulate n rom ram vars net =
-  let vars' = List.foldl (update_vars rom ram vars) vars (equations net) in
-  let ram'  = List.foldl (update_ram vars') ram (equations net) in
+  let vars' = List.foldl (update_vars rom ram vars) vars (netlist_eq net) in
+  let ram'  = List.foldl (update_ram vars') ram (netlist_eq net) in
   simulate (n-1) rom ram' vars' net
 

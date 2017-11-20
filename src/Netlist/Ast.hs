@@ -27,10 +27,10 @@ data Expression = Earg Argument
 
 type Equation = (Ident, Expression)
 
-data Netlist = Netlist { equations :: [Equation]
-                       , input     :: [Ident]
-                       , output    :: [Ident]
-                       , var       :: [(Ident,Integer)]
+data Netlist = Netlist { netlist_eq  :: [Equation]
+                       , netlist_in  :: [Ident]
+                       , netlist_out :: [Ident]
+                       , netlist_var :: [(Ident,Integer)]
                        }
 
 type Ram  = Map.Map Integer Value

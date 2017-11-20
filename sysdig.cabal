@@ -28,6 +28,7 @@ executable simulator
 executable generator
   main-is:             Gen.hs
   other-modules:       Netlist.Ast, Netlist.Build, Netlist.Show, Netlist.Typer
+                     , Alu
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.11, containers
   hs-source-dirs:      src

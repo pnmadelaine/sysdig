@@ -125,10 +125,10 @@ netlist = do skipMany space
              l3 <- sepBy ident_with_size (symbol ",")
              symbol "IN"
              l4 <- many equation
-             return $ Netlist { equations = l4
-                              , input    = l1
-                              , output   = l2
-                              , var      = l3
+             return $ Netlist { netlist_eq  = l4
+                              , netlist_in  = l1
+                              , netlist_out = l2
+                              , netlist_var = l3
                               }
 
 read_netlist :: String -> Netlist

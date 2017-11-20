@@ -71,11 +71,11 @@ aux_args eqs ins (id,_) =
 
 verify :: Netlist -> Either String (Map.Map Ident Expression)
 verify net = do
-  sizes <- foldM aux_vars            Map.empty (var net)
-  ins   <- foldM (aux_ins sizes)     Set.empty (input net)
-  outs  <- foldM (aux_outs sizes)    Set.empty (output net)
-  eqs   <- foldM (aux_eqs sizes ins) Map.empty (equations net)
-  mapM_ (aux_args eqs ins) (var net) 
+  sizes <- foldM aux_vars            Map.empty (netlist_var net)
+  ins   <- foldM (aux_ins sizes)     Set.empty (netlist_in net)
+  outs  <- foldM (aux_outs sizes)    Set.empty (netlist_out net)
+  eqs   <- foldM (aux_eqs sizes ins) Map.empty (netlist_eq net)
+  mapM_ (aux_args eqs ins) (netlist_var net) 
   return eqs
   
 get_idents :: Expression -> [Ident]
