@@ -4,192 +4,167 @@ import qualified Data.Map.Strict as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Data.Map.Lazy ((!))
-import Data.Tuple (fst)
-import Data.Maybe (fromJust)
 
 import Netlist.Ast
 import Netlist.Show
+import Control.Monad.State.Lazy
 
-data Formula = Fcst Bool
-             | Fnot Formula
-             | Fop BinOp Formula Formula
-             | Fselect Integer Wire
-             deriving (Eq, Ord, Show)
+data Env = Env { env_ids   :: Map.Map Expression Ident
+               , env_in    :: Set.Set Ident
+               , env_out   :: Set.Set Ident
+               , env_sizes :: Map.Map Ident Integer
+               }
 
-data Wire = Wbit Formula
-          | Winput Ident
-          | Wreg Ident
-          | Wmux Formula Wire Wire
-          | Wrom Wire
-          | Wram Wire Formula Wire Wire
-          | Wconcat Wire Wire
-          | Wslice Integer Integer Wire
-          deriving (Eq, Ord, Show)
+add_exp :: Expression -> Integer -> State Env Ident
+add_exp exp n = do s <- get
+                   case Map.lookup exp (env_ids s) of
+                     Just id -> return id
+                     Nothing -> let id = "_x" ++ show (Map.size (env_ids s)) in
+                                let s' = Env { env_ids   = Map.insert exp id $ env_ids s
+                                             , env_in    = env_in s
+                                             , env_out   = env_out s
+                                             , env_sizes = Map.insert id n $ env_sizes s
+                                             }
+                                in
+                                put s' >> return id
 
-(\/) :: Formula -> Formula -> Formula
-a \/ b = Fop Or a b
+input :: Ident -> Integer -> State Env Argument
+input id n = do s <- get
+                let s' = Env { env_ids   = env_ids s
+                             , env_in    = Set.insert id (env_in s)
+                             , env_out   = env_out s
+                             , env_sizes = Map.insert id n (env_sizes s)
+                             }
+                put s' >> return (ArgVar id)
 
-(/\) :: Formula -> Formula -> Formula
-a /\ b = Fop And a b
+output :: Ident -> Integer -> State Env Argument -> State Env ()
+output id n x = do a <- x
+                   let exp = Earg a
+                   s <- get
+                   let s' = Env { env_ids   = Map.insert exp id $ env_ids s
+                                , env_in    = env_in s
+                                , env_out   = Set.insert id $ env_out s
+                                , env_sizes = Map.insert id n $ env_sizes s
+                                }
+                   put s'
 
-(<>) :: Formula -> Formula -> Formula
-a <> b = Fop Xor a b
+arg_size :: Argument -> State Env Integer
+arg_size (ArgCst v) = return (List.genericLength v)
+arg_size (ArgVar id) = do s <- get
+                          let n = (env_sizes s) ! id
+                          return n
 
-nand :: Formula -> Formula -> Formula
-nand a b = Fop Nand a b
+argvar :: Ident -> State Env Argument
+argvar id = return (ArgVar id)
 
-data Netmap = Netmap { n_form :: Map.Map Formula Ident
-                     , n_wire :: Map.Map Wire Ident
-                     , n_eq   :: Map.Map Ident Expression
-                     , n_size :: Map.Map Ident Integer
-                     }
+argcst :: Value -> State Env Argument
+argcst v = return (ArgCst v)
 
-add_wire_to_netmap :: Wire -> Netmap -> Netmap
-add_wire_to_netmap w net =
-  case Map.lookup w (n_wire net) of
-    Just id -> net
-    Nothing ->
-      let net' = case w of
-           Wbit a          -> add_formula_to_netmap a net
-           Winput id       -> net
-           Wreg id         -> net
-           Wmux a w1 w2    -> add_formula_to_netmap a
-                              $ add_wire_to_netmap w1
-                              $ add_wire_to_netmap w2 net
-           Wrom w          -> add_wire_to_netmap w net
-           Wram w1 a w2 w3 -> add_formula_to_netmap a
-                              $ add_wire_to_netmap w1
-                              $ add_wire_to_netmap w2
-                              $ add_wire_to_netmap w3 net
-           Wconcat w1 w2   -> add_wire_to_netmap w1
-                              $ add_wire_to_netmap w2 net
-           Wslice i1 i2 w  -> add_wire_to_netmap w net
-      in
-      let (size, exp) = case w of
-           Wbit a          -> let id = n_form net' ! a in
-                              ( 1
-                              , Earg (ArgVar id)
-                              )
-           Winput id       -> ( n_size net' ! id
-                              , Earg (ArgVar id)
-                              )
-           Wreg id         -> ( n_size net' ! id
-                              , Ereg id
-                              )
-           Wmux a w1 w2    -> let id  = n_form net' ! a in
-                              let id1 = n_wire net' ! w1 in
-                              let id2 = n_wire net' ! w2 in
-                              ( n_size net' ! id1
-                              , Emux (ArgVar id) (ArgVar id1) (ArgVar id2)
-                              )
-           Wrom w          -> let id = n_wire net' ! w in
-                              ( 8, Erom 32 8 (ArgVar id) )
-           Wram w1 a w2 w3 -> let id  = n_form net' ! a in
-                              let id1 = n_wire net' ! w1 in
-                              let id2 = n_wire net' ! w2 in
-                              let id3 = n_wire net' ! w3 in
-                              ( 8
-                              , Eram 32 8 (ArgVar id1) (ArgVar id)
-                                          (ArgVar id2) (ArgVar id3)
-                              )
-           Wconcat w1 w2   -> let id1 = n_wire net' ! w1 in
-                              let id2 = n_wire net' ! w2 in
-                              ( n_size net' ! id1 + n_size net' ! id2
-                              , Econcat (ArgVar id1) (ArgVar id2)
-                              )
-           Wslice i1 i2 w  -> let id = n_wire net' ! w in
-                              ( i2 - i1
-                              , Eslice i1 i2 (ArgVar id)
-                              )
-      in
-      let id' = "_b" ++ show (Map.size (n_wire net'))
-      in
-      Netmap { n_form = n_form net'
-             , n_wire = Map.insert w id' (n_wire net')
-             , n_eq   = Map.insert id' exp (n_eq net')
-             , n_size = Map.insert id' size (n_size net')
-             }
-            
-add_formula_to_netmap :: Formula -> Netmap -> Netmap
-add_formula_to_netmap a net =
-  case Map.lookup a (n_form net) of
-    Just id -> net
-    Nothing ->
-      let net' = case a of
-           Fcst v      -> net
-           Fnot a      -> add_formula_to_netmap a net
-           Fop op a b  -> add_formula_to_netmap a
-                          $ add_formula_to_netmap b net
-           Fselect i w -> add_wire_to_netmap w net
-      in
-      let exp = case a of
-           Fcst v      -> Earg (ArgCst [v])
-           Fnot a      -> let id = n_form net' ! a in
-                          Enot (ArgVar id)
-           Fop op a b  -> let id1 = n_form net' ! a in
-                          let id2 = n_form net' ! b in
-                          Ebinop op (ArgVar id1) (ArgVar id2)
-           Fselect i w -> let id = n_wire net' ! w in
-                          Eselect i (ArgVar id)
-      in
-      let id' = "_i" ++ show (Map.size (n_form net'))
-      in
-      Netmap { n_form = Map.insert a id' (n_form net')
-             , n_wire = n_wire net'
-             , n_eq   = Map.insert id' exp (n_eq net')
-             , n_size = n_size net'
-             }
+neg :: State Env Argument -> State Env Argument
+neg x = do a <- x
+           let exp = Enot a
+           n <- arg_size a
+           id <- add_exp exp n
+           return (ArgVar id)
 
-add_def_to_netmap :: (Ident, Wire) -> Netmap -> Netmap
-add_def_to_netmap (id, w) net =
-  let net' = add_wire_to_netmap w net in
-  let id'  = n_wire net' ! w in
-  let exp  = Earg (ArgVar id') in
-  let size = n_size  net' ! id' in
-  Netmap { n_form = n_form net'
-         , n_wire = n_wire net'
-         , n_eq   = Map.insert id exp (n_eq net')
-         , n_size = Map.insert id size (n_size net')
-         }
+reg :: Ident -> State Env Argument
+reg id = do let exp = Ereg id
+            n <- arg_size (ArgVar id)
+            id <- add_exp exp n
+            return (ArgVar id)
 
-build :: [(Ident, Integer)] -> [(Ident, Integer)] -> [(Ident, Wire)] -> Netlist
-build inputs outputs defs =
-  let init_size = List.foldl (\m (i,n) -> Map.insert i n m)
-                             Map.empty
-                             (inputs ++ outputs)
-  in
-  let netmap = Netmap { n_form = Map.empty
-                      , n_wire = Map.empty
-                      , n_eq   = Map.empty
-                      , n_size = init_size
+binop :: BinOp -> State Env Argument -> State Env Argument -> State Env Argument
+binop op x y = do a <- x
+                  b <- y
+                  let exp = Ebinop op a b
+                  n <- arg_size a
+                  id <- add_exp exp n
+                  return (ArgVar id)
+
+mux :: State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument
+mux x y z = do a <- x
+               b <- y
+               c <- z
+               let exp = Emux a b c
+               n <- arg_size b
+               id <- add_exp exp n
+               return (ArgVar id)
+
+rom :: State Env Argument -> State Env Argument
+rom x = do a <- x
+           let exp = Erom 32 8 a
+           let n = 8
+           id <- add_exp exp n
+           return (ArgVar id)
+
+ram :: State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument
+ram ra we wa d = do a1 <- ra
+                    a2 <- we
+                    a3 <- wa
+                    a4 <- d
+                    let exp = Eram 32 8 a1 a2 a3 a4
+                    let n = 8
+                    id <- add_exp exp n
+                    return (ArgVar id)
+
+conc :: State Env Argument -> State Env Argument -> State Env Argument
+conc x y = do a <- x
+              b <- y
+              let exp = Econcat a b
+              n1 <- arg_size a
+              n2 <- arg_size b
+              let n = n1 + n2
+              id <- add_exp exp n
+              return (ArgVar id)
+
+slice :: Integer -> Integer -> State Env Argument -> State Env Argument
+slice i j x = do a <- x
+                 let exp = Eslice i j a
+                 let n = j-i
+                 id <- add_exp exp n
+                 return (ArgVar id)
+
+select :: Integer -> State Env Argument -> State Env Argument
+select i x = do a <- x
+                let exp = Eselect i a
+                let n = 1
+                id <- add_exp exp n
+                return (ArgVar id)
+
+build :: State Env () -> Netlist
+build x =
+  let env_empty = Env { env_ids   = Map.empty
+                      , env_in    = Set.empty
+                      , env_out   = Set.empty
+                      , env_sizes = Map.empty
                       }
   in
-  let netmap' = List.foldl (flip add_def_to_netmap) netmap defs
-  in
-  let var_map = Map.foldlWithKey (\m _ i -> Map.insert i 1 m)
-                                (n_size netmap') 
-                                (n_form netmap')
-  in
-  Netlist { netlist_eq  = Map.toAscList (n_eq netmap')
-          , netlist_in  = List.map fst inputs
-          , netlist_out = List.map fst outputs
-          , netlist_var = Map.toAscList var_map
-          }
+  let (_,s) = runState x env_empty in
+  let ids = Map.toAscList (env_ids s) in
+  let eqs = List.map (\(e,i) -> (i,e)) ids in
+  let input = Set.toList (env_in s) in
+  let output = Set.toList (env_out s) in
+  let var = List.map (\(_,i) -> (i, (env_sizes s) ! i)) ids
+         ++ List.map (\i -> (i, (env_sizes s) ! i)) input
+  in Netlist { netlist_eq  = eqs
+             , netlist_var = var
+             , netlist_in  = input
+             , netlist_out = output
+             }
 
---
+(\/) :: State Env Argument -> State Env Argument -> State Env Argument
+x \/ y = binop Or x y
 
-funnel :: [Formula] -> Wire
-funnel l =
-  let k = List.map Wbit l in
-  List.foldl Wconcat (List.head k) (List.tail k)
- 
-smash :: Wire -> Integer -> [Formula]
-smash w n =
-  List.map (\i -> Fselect (n-i) w) [1..n]
+(/\) :: State Env Argument -> State Env Argument -> State Env Argument
+x /\ y = binop And x y
 
-squeeze :: [Formula] -> [Formula]
-squeeze l =
-  let n = List.genericLength l in
-  let w = funnel l in
-  smash w n
+(<>) :: State Env Argument -> State Env Argument -> State Env Argument
+x <> y = binop Xor x y
 
+funnel (x:xs) = List.foldl conc x xs
+
+smash xs n = List.map (\i -> select i xs) [0..n-1]
+
+squeeze xs = let n = List.genericLength xs in
+             let x = funnel xs in
+             smash x n
