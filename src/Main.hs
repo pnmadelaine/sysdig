@@ -55,11 +55,6 @@ bool_list_of_string = aux []
         aux acc ('1':xs) = aux (True:acc)  xs
         aux acc ('0':xs) = aux (False:acc) xs
 
-string_of_bool_list = aux []
-  where aux acc []         = acc
-        aux acc (True:xs)  = aux ('1':acc) xs
-        aux acc (False:xs) = aux ('0':acc) xs
-
 read_file :: FilePath -> IO Ram
 read_file filepath = do s  <- readFile filepath
                         let values = List.map bool_list_of_string $ lines s

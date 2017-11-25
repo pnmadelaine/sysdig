@@ -5,46 +5,46 @@ import Netlist.Ast
 
 join s = List.foldl (++) "" . List.intersperse s
 
-string_of_wire w = aux "" w
-  where aux acc []         = acc
-        aux acc (True:xs)  = aux ("1"++acc) xs
-        aux acc (False:xs) = aux ("0"++acc) xs
+string_of_var (id, 1) = id
+string_of_var (id, n) = id ++ ":" ++ show n
 
-string_of_arg (ArgCst w) = string_of_wire w
-string_of_arg (ArgVar i) = i
+string_of_bool_list w = aux "" w
+    where aux acc []         = acc
+          aux acc (True:xs)  = aux ("1"++acc) xs
+          aux acc (False:xs) = aux ("0"++acc) xs
 
-string_of_binop Or   = "OR"
-string_of_binop Xor  = "XOR"
-string_of_binop And  = "AND"
-string_of_binop Nand = "NAND"
+instance Show BinOp where
+  show Or   = "OR"
+  show Xor  = "XOR"
+  show And  = "AND"
+  show Nand = "NAND"
 
-string_of_expr (Earg a)           = string_of_arg a
-string_of_expr (Ereg id)          = "REG " ++ id
-string_of_expr (Enot a)           = "NOT " ++ string_of_arg a
-string_of_expr (Ebinop op a b)    = string_of_binop op ++ " " ++ string_of_arg a
-                                                       ++ " " ++ string_of_arg b
-string_of_expr (Emux a b c)       = "MUX " ++ string_of_arg a ++ " " ++ string_of_arg b
-string_of_expr (Erom i j a)       = "ROM " ++ show i ++ " " ++ show j ++ " " ++ string_of_arg a
-string_of_expr (Eram i j a b c d) = "RAM " ++ show i ++ " " ++ show j 
-                                           ++ " " ++ string_of_arg a ++ " " ++ string_of_arg b
-                                           ++ " " ++ string_of_arg c ++ " " ++ string_of_arg d
-string_of_expr (Econcat a b)      = "CONCAT " ++ string_of_arg a ++ " " ++ string_of_arg b
-string_of_expr (Eslice i j a)     = "SLICE "  ++ show i ++ " " ++ show j
-                                              ++ " " ++ string_of_arg a
-string_of_expr (Eselect i a)      = "SELECT " ++ show i ++ " " ++ string_of_arg a
+instance Show Argument where
+  show (ArgCst w) = string_of_bool_list w
+  show (ArgVar i) = i
 
-string_of_equation (id, expr) = id ++ " = " ++ string_of_expr expr
+instance Show Expression where
+  show (Earg a)           = show a
+  show (Ereg id)          = "REG " ++ id
+  show (Enot a)           = "NOT " ++ show a
+  show (Ebinop op a b)    = show op ++ " " ++ show a
+                                    ++ " " ++ show b
+  show (Emux a b c)       = "MUX " ++ show a ++ " " ++ show b
+                                             ++ " " ++ show c
+  show (Erom i j a)       = "ROM " ++ show i ++ " " ++ show j ++ " " ++ show a
+  show (Eram i j a b c d) = "RAM " ++ show i ++ " " ++ show j
+                                             ++ " " ++ show a ++ " " ++ show b
+                                             ++ " " ++ show c ++ " " ++ show d
+  show (Econcat a b)      = "CONCAT " ++ show a ++ " " ++ show b
+  show (Eslice i j a)     = "SLICE "  ++ show i ++ " " ++ show j
+                                                ++ " " ++ show a
+  show (Eselect i a)      = "SELECT " ++ show i ++ " " ++ show a
 
-string_of_var_with_size (id, 1) = id
-string_of_var_with_size (id, n) = id ++ ":" ++ show n
-
-string_of_netlist netlist = 
-     "INPUT "  ++ join ", " (netlist_in netlist) ++ "\n"
-  ++ "OUTPUT " ++ join ", " (netlist_out netlist) ++ "\n"
-  ++ "VAR "    ++ join ", " (List.map string_of_var_with_size (netlist_var netlist)) ++ "\n"
-  ++ "IN\n"    ++ join "\n" (List.map string_of_equation (netlist_eq netlist)) 
-  ++ "\n"
+string_of_equation (id, expr) = id ++ " = " ++ show expr
 
 instance Show Netlist where
-  show = string_of_netlist
- 
+  show netlist = "INPUT "  ++ join ", " (netlist_in netlist) ++ "\n"
+              ++ "OUTPUT " ++ join ", " (netlist_out netlist) ++ "\n"
+              ++ "VAR "    ++ join ", " (List.map string_of_var (netlist_var netlist)) ++ "\n"
+              ++ "IN\n"    ++ join "\n" (List.map string_of_equation (netlist_eq netlist)) 
+              ++ "\n"
