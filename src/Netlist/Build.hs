@@ -15,6 +15,8 @@ data Env = Env { env_ids   :: Map.Map Expression Ident
                , env_sizes :: Map.Map Ident Integer
                }
 
+type Jazz = State Env Argument
+
 add_exp :: Expression -> Integer -> State Env Ident
 add_exp exp n = do s <- get
                    case Map.lookup exp (env_ids s) of
@@ -28,14 +30,14 @@ add_exp exp n = do s <- get
                                 in
                                 put s' >> return id
 
-input :: Ident -> Integer -> State Env Argument
+input :: Ident -> Integer -> State Env ()
 input id n = do s <- get
                 let s' = Env { env_ids   = env_ids s
                              , env_in    = Set.insert id (env_in s)
                              , env_out   = env_out s
                              , env_sizes = Map.insert id n (env_sizes s)
                              }
-                put s' >> return (ArgVar id)
+                put s'
 
 output :: Ident -> Integer -> State Env Argument -> State Env ()
 output id n x = do a <- x
@@ -67,11 +69,16 @@ neg x = do a <- x
            id <- add_exp exp n
            return (ArgVar id)
 
-reg :: Ident -> State Env Argument
-reg id = do let exp = Ereg id
-            n <- arg_size (ArgVar id)
-            id <- add_exp exp n
-            return (ArgVar id)
+reg :: Ident -> Integer -> State Env Argument -> State Env ()
+reg id n x = do (ArgVar id') <- x
+                let exp = Ereg id'
+                s <- get
+                let s' = Env { env_ids   = Map.insert exp id $ env_ids s
+                             , env_in    = env_in s
+                             , env_out   = Set.insert id $ env_out s
+                             , env_sizes = Map.insert id n $ env_sizes s
+                             }
+                put s'
 
 binop :: BinOp -> State Env Argument -> State Env Argument -> State Env Argument
 binop op x y = do a <- x
@@ -161,10 +168,11 @@ x /\ y = binop And x y
 (<>) :: State Env Argument -> State Env Argument -> State Env Argument
 x <> y = binop Xor x y
 
-funnel (x:xs) = List.foldl conc x xs
+funnel (x:xs) = List.foldl (flip conc) x xs
 
 smash xs n = List.map (\i -> select i xs) [0..n-1]
 
 squeeze xs = let n = List.genericLength xs in
              let x = funnel xs in
              smash x n
+

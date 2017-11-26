@@ -8,5 +8,5 @@ import qualified Alu
 netlist = Alu.netlist
 
 main :: IO ()
-main = writeFile "test.net" $ show netlist
+main = writeFile "alu.net" $ show netlist
 
