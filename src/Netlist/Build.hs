@@ -16,6 +16,7 @@ data Env = Env { env_ids   :: Map.Map Expression Ident
                }
 
 type Jazz = State Env Argument
+type Funk = State Env ()
 
 add_exp :: Expression -> Integer -> State Env Ident
 add_exp exp n = do s <- get
@@ -104,7 +105,8 @@ rom x = do a <- x
            id <- add_exp exp n
            return (ArgVar id)
 
-ram :: State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument
+ram :: State Env Argument -> State Env Argument
+    -> State Env Argument -> State Env Argument -> State Env Argument
 ram ra we wa d = do a1 <- ra
                     a2 <- we
                     a3 <- wa
@@ -138,7 +140,7 @@ select i x = do a <- x
                 id <- add_exp exp n
                 return (ArgVar id)
 
-build :: State Env () -> Netlist
+build :: Funk -> Netlist
 build x =
   let env_empty = Env { env_ids   = Map.empty
                       , env_in    = Set.empty
@@ -159,19 +161,22 @@ build x =
              , netlist_out = output
              }
 
-(\/) :: State Env Argument -> State Env Argument -> State Env Argument
+(\/) :: Jazz -> Jazz -> Jazz
 x \/ y = binop Or x y
 
-(/\) :: State Env Argument -> State Env Argument -> State Env Argument
+(/\) :: Jazz -> Jazz -> Jazz
 x /\ y = binop And x y
 
-(<>) :: State Env Argument -> State Env Argument -> State Env Argument
+(<>) :: Jazz -> Jazz -> Jazz
 x <> y = binop Xor x y
 
+funnel :: [Jazz] -> Jazz
 funnel (x:xs) = List.foldl (flip conc) x xs
 
+smash :: Jazz -> Integer -> [Jazz]
 smash xs n = List.map (\i -> select i xs) [0..n-1]
 
+squeeze :: [Jazz] -> [Jazz]
 squeeze xs = let n = List.genericLength xs in
              let x = funnel xs in
              smash x n

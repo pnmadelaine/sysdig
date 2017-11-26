@@ -61,6 +61,7 @@ data ALU_flags = ALU_flags { carry_out :: Jazz
                            -- overflow
                            }
 
+fulladder :: Jazz -> Jazz -> Jazz -> (Jazz, Jazz)
 fulladder a b c =
   let r = (a /\ b) \/ ((a \/ b) /\ c) in
   let s = a <> b <> c in
@@ -83,6 +84,7 @@ alu options xs ys =
   , zs
   )
 
+foo :: Funk
 foo = let x = argvar "x" in
       let y = argvar "y" in
       let xs = smash x 8 in
