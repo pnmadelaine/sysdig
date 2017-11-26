@@ -36,5 +36,5 @@ topological graph =
             else do
               let newPath = Set.insert x currentPath
               (checked', ord') <- foldM (dfs newPath) (checked, ord) (neigh x graph)
-              return (Set.insert x checked', x:ord') 
+              return (Set.insert x checked', x:ord')
 

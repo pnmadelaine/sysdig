@@ -19,7 +19,7 @@ check_equation sizes (id, exp) =
     Ereg r           -> n == sizes ! r
     Enot a           -> n == size_arg a
     Ebinop op a b    -> n == size_arg a && n == size_arg b
-    Emux a b c       -> 1 == size_arg a 
+    Emux a b c       -> 1 == size_arg a
                      && n == size_arg b && n == size_arg b
     Erom i j a       -> i == size_arg a && j == n
     Eram i j a b c d -> i == size_arg a && i == size_arg c
@@ -40,7 +40,7 @@ aux_eqs sizes ins eqs (id,exp) =
     Left $ "Error in the equation of \"" ++ id ++ "\""
   else
     Right $ Map.insert id exp eqs
-    
+
 aux_vars vars (id,n) =
   if Map.member id vars then
     Left $ "\"" ++ id ++ "\" is defined several times in VAR"
@@ -75,9 +75,9 @@ verify net = do
   ins   <- foldM (aux_ins sizes)     Set.empty (netlist_in net)
   outs  <- foldM (aux_outs sizes)    Set.empty (netlist_out net)
   eqs   <- foldM (aux_eqs sizes ins) Map.empty (netlist_eq net)
-  mapM_ (aux_args eqs ins) (netlist_var net) 
+  mapM_ (aux_args eqs ins) (netlist_var net)
   return eqs
-  
+
 get_idents :: Expression -> [Ident]
 get_idents expr =
   let bar = case expr of

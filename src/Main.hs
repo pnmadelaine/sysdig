@@ -74,13 +74,13 @@ read_options acc         (_:os)                = read_options acc os
 read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
 read_netlist_in net = do
   putStrLn "---- Input ----- "
-  let f m (i,n) = Map.insert i (List.replicate (fromInteger n) False) m 
-  let m = List.foldl f Map.empty (netlist_var net) 
+  let f m (i,n) = Map.insert i (List.replicate (fromInteger n) False) m
+  let m = List.foldl f Map.empty (netlist_var net)
   foldM aux m (netlist_in net)
     where aux m i = do putStr (i++":")
                        hFlush stdout
                        s <- getLine -- TODO verify length
-                       let v = bool_list_of_string s  
+                       let v = bool_list_of_string s
                        return $ Map.insert i v m
 
 print_vars :: Map.Map Ident [Bool] -> [Ident] -> IO ()
@@ -94,12 +94,12 @@ main :: IO ()
 main = do (options, files) <- getArgs >>= get_options
           let file_path = List.head files
           -- TODO: check file has .net extension
-          let output_path = dropExtension file_path ++ "_sch" ++ ".net" 
+          let output_path = dropExtension file_path ++ "_sch" ++ ".net"
           code <- readFile file_path
           let net = read_netlist code
           case verify net of
             Left err -> putStrLn err
-            Right _  -> 
+            Right _  ->
               case schedule net of
                 Left err      -> putStrLn err
                 Right net_sch -> do
@@ -109,6 +109,6 @@ main = do (options, files) <- getArgs >>= get_options
                   else do
                     (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options 
                     vars <- read_netlist_in net
-                    (ram', vars') <- simulate n rom ram vars net_sch 
+                    (ram', vars') <- simulate n rom ram vars net_sch
                     print_vars vars' (netlist_out net)
 

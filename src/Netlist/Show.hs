@@ -10,8 +10,8 @@ string_of_var (id, n) = id ++ ":" ++ show n
 
 string_of_bool_list w = aux "" w
     where aux acc []         = acc
-          aux acc (True:xs)  = aux ("1"++acc) xs
-          aux acc (False:xs) = aux ("0"++acc) xs
+          aux acc (True:xs)  = aux ('1':acc) xs
+          aux acc (False:xs) = aux ('0':acc) xs
 
 instance Show BinOp where
   show Or   = "OR"

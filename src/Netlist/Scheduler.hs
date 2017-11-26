@@ -30,12 +30,12 @@ get_idents expr =
   Emux (ArgVar i) _ _       -> i:foo
   Eram _ _ (ArgVar i) _ _ _ -> i:foo
   _                         -> foo
-                           
+
 make_graph :: Netlist -> Graph.Graph Ident
 make_graph net =
   let graph0 = List.foldl (\g (i,_) -> Graph.add_node i g)
                           Graph.empty
-                          (netlist_var net) 
+                          (netlist_var net)
   in
   let aux graph (i,exp) = List.foldl (\g j -> add_edge i j g)
                           graph
@@ -47,7 +47,7 @@ schedule :: Netlist -> Either String Netlist
 schedule net = do
   let graph = make_graph net
   ord <- topological graph
-  let eqs = Map.fromList (netlist_eq net) 
+  let eqs = Map.fromList (netlist_eq net)
   let get_eq i = Map.lookup i eqs >>= (\eq -> return (i,eq))
   let l = List.map get_eq ord
   let new_eq = List.reverse $ catMaybes l

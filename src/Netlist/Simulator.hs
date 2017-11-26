@@ -21,20 +21,20 @@ int_of_bool_list l = aux 0 (List.reverse l)
         aux acc (True:xs)  = aux (1+2*acc) xs
         aux acc (False:xs) = aux (2*acc)   xs
 
-read_ram :: Value -> Ram -> Value 
-read_ram addr ram = Map.findWithDefault def (int_of_bool_list addr) ram 
+read_ram :: Value -> Ram -> Value
+read_ram addr ram = Map.findWithDefault def (int_of_bool_list addr) ram
 
 write_ram :: Value -> Value -> Ram -> Ram
 write_ram addr x ram = Map.insert (int_of_bool_list addr) x ram
 
-value :: Map.Map Ident Value -> Argument -> Value 
+value :: Map.Map Ident Value -> Argument -> Value
 value m (ArgVar i) = m ! i
 value _ (ArgCst c) = c
 
 apply_op :: BinOp -> [Bool] -> [Bool] -> [Bool]
 apply_op op a b =
   let f = case op of
-            Or   -> \(x,y) -> x || y 
+            Or   -> \(x,y) -> x || y
             Xor  -> \(x,y) -> x /= y
             And  -> \(x,y) -> x && y
             Nand -> \(x,y) -> not(x&&y)
@@ -45,9 +45,9 @@ get_slice :: Integer -> Integer -> [Bool] -> [Bool]
 get_slice 0 0 _      = []
 get_slice 0 j (x:xs) = x:(get_slice 0 (j-1) xs)
 get_slice i j (x:xs) = get_slice (i-1) (j-1) xs
-  
+
 update_vars :: Ram -> Ram -> Vars -> Vars -> Equation -> Vars
-update_vars rom ram regs vars (id, exp) = 
+update_vars rom ram regs vars (id, exp) =
   let v = case exp of
             Earg a           -> value vars a
             Ereg i           -> regs ! i
@@ -60,7 +60,7 @@ update_vars rom ram regs vars (id, exp) =
             Eram _ _ a _ _ _ -> read_ram (value vars a) ram
             Econcat a b      -> (value vars b) ++ (value vars a)
             Eslice i1 i2 a   -> get_slice i1 i2 (value vars a)
-            Eselect i a      -> get_slice i (i+1) (value vars a) 
+            Eselect i a      -> get_slice i (i+1) (value vars a)
   in Map.insert id v vars
 
 update_ram :: Vars -> Ram -> Equation -> Ram
@@ -70,7 +70,7 @@ update_ram vars ram (_, Eram _ _ _ we wa dt) =
     [False] -> ram
 update_ram _ ram _ = ram
 
-simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> IO (Ram, Vars) 
+simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> IO (Ram, Vars)
 simulate 0 _ ram regs net = do
   return (ram,regs)
 simulate n rom ram vars net =
