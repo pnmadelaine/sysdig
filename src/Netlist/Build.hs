@@ -15,10 +15,10 @@ data Env = Env { env_ids   :: Map.Map Expression Ident
                , env_sizes :: Map.Map Ident Integer
                }
 
-type Jazz = State Env Argument
-type Funk = State Env ()
+type Jazz = State Env
+type Funk = Jazz ()
 
-add_exp :: Expression -> Integer -> State Env Ident
+add_exp :: Expression -> Integer -> Jazz Ident
 add_exp exp n = do s <- get
                    case Map.lookup exp (env_ids s) of
                      Just id -> return id
@@ -31,16 +31,16 @@ add_exp exp n = do s <- get
                                 in
                                 put s' >> return id
 
-input :: Ident -> Integer -> State Env ()
+input :: Ident -> Integer -> Jazz Argument
 input id n = do s <- get
                 let s' = Env { env_ids   = env_ids s
                              , env_in    = Set.insert id (env_in s)
                              , env_out   = env_out s
                              , env_sizes = Map.insert id n (env_sizes s)
                              }
-                put s'
+                put s' >> return (ArgVar id)
 
-output :: Ident -> Integer -> State Env Argument -> State Env ()
+output :: Ident -> Integer -> Jazz Argument -> Jazz ()
 output id n x = do a <- x
                    let exp = Earg a
                    s <- get
@@ -51,26 +51,29 @@ output id n x = do a <- x
                                 }
                    put s'
 
-arg_size :: Argument -> State Env Integer
+arg_size :: Argument -> Jazz Integer
 arg_size (ArgCst v) = return (List.genericLength v)
 arg_size (ArgVar id) = do s <- get
                           let n = (env_sizes s) ! id
                           return n
 
-argvar :: Ident -> State Env Argument
+arg :: Argument -> Jazz Argument
+arg = return
+
+argvar :: Ident -> Jazz Argument
 argvar id = return (ArgVar id)
 
-argcst :: Value -> State Env Argument
+argcst :: Value -> Jazz Argument
 argcst v = return (ArgCst v)
 
-neg :: State Env Argument -> State Env Argument
+neg :: Jazz Argument -> Jazz Argument
 neg x = do a <- x
            let exp = Enot a
            n <- arg_size a
            id <- add_exp exp n
            return (ArgVar id)
 
-reg :: Ident -> Integer -> State Env Argument -> State Env ()
+reg :: Ident -> Integer -> Jazz Argument -> Jazz Argument
 reg id n x = do (ArgVar id') <- x
                 let exp = Ereg id'
                 s <- get
@@ -79,9 +82,9 @@ reg id n x = do (ArgVar id') <- x
                              , env_out   = Set.insert id $ env_out s
                              , env_sizes = Map.insert id n $ env_sizes s
                              }
-                put s'
+                put s' >> return (ArgVar id')
 
-binop :: BinOp -> State Env Argument -> State Env Argument -> State Env Argument
+binop :: BinOp -> Jazz Argument -> Jazz Argument -> Jazz Argument
 binop op x y = do a <- x
                   b <- y
                   let exp = Ebinop op a b
@@ -89,7 +92,7 @@ binop op x y = do a <- x
                   id <- add_exp exp n
                   return (ArgVar id)
 
-mux :: State Env Argument -> State Env Argument -> State Env Argument -> State Env Argument
+mux :: Jazz Argument -> Jazz Argument -> Jazz Argument -> Jazz Argument
 mux x y z = do a <- x
                b <- y
                c <- z
@@ -98,15 +101,15 @@ mux x y z = do a <- x
                id <- add_exp exp n
                return (ArgVar id)
 
-rom :: State Env Argument -> State Env Argument
+rom :: Jazz Argument -> Jazz Argument
 rom x = do a <- x
            let exp = Erom 32 8 a
            let n = 8
            id <- add_exp exp n
            return (ArgVar id)
 
-ram :: State Env Argument -> State Env Argument
-    -> State Env Argument -> State Env Argument -> State Env Argument
+ram :: Jazz Argument -> Jazz Argument
+    -> Jazz Argument -> Jazz Argument -> Jazz Argument
 ram ra we wa d = do a1 <- ra
                     a2 <- we
                     a3 <- wa
@@ -116,7 +119,7 @@ ram ra we wa d = do a1 <- ra
                     id <- add_exp exp n
                     return (ArgVar id)
 
-conc :: State Env Argument -> State Env Argument -> State Env Argument
+conc :: Jazz Argument -> Jazz Argument -> Jazz Argument
 conc x y = do a <- x
               b <- y
               let exp = Econcat a b
@@ -126,14 +129,14 @@ conc x y = do a <- x
               id <- add_exp exp n
               return (ArgVar id)
 
-slice :: Integer -> Integer -> State Env Argument -> State Env Argument
+slice :: Integer -> Integer -> Jazz Argument -> Jazz Argument
 slice i j x = do a <- x
                  let exp = Eslice i j a
                  let n = j-i
                  id <- add_exp exp n
                  return (ArgVar id)
 
-select :: Integer -> State Env Argument -> State Env Argument
+select :: Integer -> Jazz Argument -> Jazz Argument
 select i x = do a <- x
                 let exp = Eselect i a
                 let n = 1
@@ -161,23 +164,29 @@ build x =
              , netlist_out = output
              }
 
-(\/) :: Jazz -> Jazz -> Jazz
+(\/) :: Jazz Argument -> Jazz Argument -> Jazz Argument
 x \/ y = binop Or x y
 
-(/\) :: Jazz -> Jazz -> Jazz
+(/\) :: Jazz Argument -> Jazz Argument -> Jazz Argument
 x /\ y = binop And x y
 
-(<>) :: Jazz -> Jazz -> Jazz
+(<>) :: Jazz Argument -> Jazz Argument -> Jazz Argument
 x <> y = binop Xor x y
 
-funnel :: [Jazz] -> Jazz
-funnel (x:xs) = List.foldl (flip conc) x xs
+funnel :: [Argument] -> Jazz Argument
+funnel l = let x:xs = List.map arg l in
+           List.foldl (flip conc) x xs
 
-smash :: Jazz -> Integer -> [Jazz]
-smash xs n = List.map (\i -> select i xs) [0..n-1]
+smash :: Argument -> Integer -> Jazz [Argument]
+smash x n =
+  let aux acc _ 0 = return acc
+      aux acc x i = do y <- select (i-1) x
+                       aux (y:acc) x (i-1)
+  in
+  aux [] (arg x) n
 
-squeeze :: [Jazz] -> [Jazz]
-squeeze xs = let n = List.genericLength xs in
-             let x = funnel xs in
-             smash x n
+squeeze :: [Argument] -> Jazz [Argument]
+squeeze xs = do let n = List.genericLength xs
+                y <- funnel xs
+                smash y n
 
