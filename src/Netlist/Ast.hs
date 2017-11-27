@@ -36,3 +36,9 @@ data Netlist = Netlist { netlist_eq  :: [Equation]
 type Ram  = Map.Map Integer Value
 type Vars = Map.Map Ident Value
 
+empty_netlist = Netlist { netlist_eq  = []
+                        , netlist_in  = []
+                        , netlist_out = []
+                        , netlist_var = []
+                        }
+
