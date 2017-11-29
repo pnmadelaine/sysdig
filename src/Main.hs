@@ -15,6 +15,7 @@ import Control.Monad (guard, foldM, mapM_)
 
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
+import Data.Map.Lazy ((!))
 import Data.Maybe (fromJust)
 
 data Flag =
@@ -72,16 +73,18 @@ read_options (n,rom,_)   (LoadRam filepath:os) = do ram <- read_file filepath
 read_options acc         (_:os)                = read_options acc os
 
 read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
-read_netlist_in net = do
+read_netlist_in net =
+  let sizes = Map.fromList $ netlist_var net in 
+  let aux m i = do putStr (i++"("++show(sizes!i)++"):")
+                   hFlush stdout
+                   s <- getLine -- TODO verify length
+                   let v = bool_list_of_string s
+                   return $ Map.insert i v m
+  in do
   putStrLn "---- Input ----- "
   let f m (i,n) = Map.insert i (List.replicate (fromInteger n) False) m
   let m = List.foldl f Map.empty (netlist_var net)
   foldM aux m (netlist_in net)
-    where aux m i = do putStr (i++":")
-                       hFlush stdout
-                       s <- getLine -- TODO verify length
-                       let v = bool_list_of_string s
-                       return $ Map.insert i v m
 
 print_vars :: Map.Map Ident [Bool] -> [Ident] -> IO ()
 print_vars vars l = do
@@ -107,7 +110,7 @@ main = do (options, files) <- getArgs >>= get_options
                   if List.elem PrintOnly options then
                     return ()
                   else do
-                    (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options 
+                    (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options
                     vars <- read_netlist_in net
                     (ram', vars') <- simulate n rom ram vars net_sch
                     print_vars vars' (netlist_out net)
