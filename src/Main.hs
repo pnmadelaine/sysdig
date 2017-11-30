@@ -74,7 +74,7 @@ read_options acc         (_:os)                = read_options acc os
 
 read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
 read_netlist_in net =
-  let sizes = Map.fromList $ netlist_var net in 
+  let sizes = Map.fromList $ netlist_var net in
   let aux m i = do putStr (i++"("++show(sizes!i)++"):")
                    hFlush stdout
                    s <- getLine -- TODO verify length

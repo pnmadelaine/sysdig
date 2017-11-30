@@ -56,15 +56,15 @@ update_vars rom ram regs vars (id, exp) =
             Emux a b c       -> case value vars a of
                                   [True]  -> value vars b
                                   [False] -> value vars c
-            Erom _ _ a       -> read_ram (value vars a) rom
-            Eram _ _ a _ _ _ -> read_ram (value vars a) ram
+            Erom a           -> read_ram (value vars a) rom
+            Eram a _ _ _     -> read_ram (value vars a) ram
             Econcat a b      -> (value vars b) ++ (value vars a)
             Eslice i1 i2 a   -> get_slice i1 i2 (value vars a)
             Eselect i a      -> get_slice i (i+1) (value vars a)
   in Map.insert id v vars
 
 update_ram :: Vars -> Ram -> Equation -> Ram
-update_ram vars ram (_, Eram _ _ _ we wa dt) =
+update_ram vars ram (_, Eram _ we wa dt) =
   case value vars we of
     [True]  -> Map.insert (int_of_bool_list (value vars wa)) (value vars dt) ram
     [False] -> ram

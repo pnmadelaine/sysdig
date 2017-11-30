@@ -35,30 +35,27 @@ nadder c (x:xs) (y:ys) = do
   (c, zs) <- nadder r xs ys
   return (c, z:zs)
 
-shiftl :: (Bit a, Bit b) => [a] -> [b] -> Jazz [Argument]
-shiftl xs ys =
+shift :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
+shift side xs ys =
   let n = List.genericLength xs in
   let aux :: (Bit a, Bit b) => Integer -> [a] -> [b] -> Jazz [Argument]
       aux i xs [] =
         mapM funk xs
       aux i xs (y:ys) = do
-        a <- conc (List.genericReplicate i False) (List.genericTake (n-i) xs)
-        b <- mux y a xs
-        aux (2*i) b ys
+        let l = List.genericReplicate i False
+        a <- conc l (List.genericTake (n-i) xs)
+        b <- conc (List.genericDrop i xs) l
+        c <- mux side a b
+        d <- mux y c xs
+        aux (2*i) d ys
   in
   aux 1 xs ys
-
-shiftr :: (Bit a, Bit b) => [a] -> [b] -> Jazz [Argument]
-shiftr xs ys = do
-  zs <- shiftl (List.reverse xs) ys
-  return $ List.reverse zs
 
 foo :: Jazz ()
 foo = do x <- input "x" 8
          y <- input "y" 3
-         v <- shiftl x y
-         w <- shiftr x y
-         output "v" v
+         [z] <- input "z" 1
+         w <- shift z x y
          output "w" w
 
 netlist = build foo

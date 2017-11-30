@@ -27,6 +27,8 @@ type Jazz = State Env
 
 class Bit a where
   funk :: a -> Jazz Argument
+class Wire a where
+  prog :: a -> Jazz [Argument]
 
 instance Bit Argument where
   funk x = return x
@@ -121,7 +123,7 @@ mux a xs ys = do a <- funk a
 
 rom :: Bit a => [a] -> Jazz [Argument]
 rom xs = do (_, a) <- mapM funk xs >>= funnel
-            let exp = Erom addr_size word_size a
+            let exp = Erom a
             id <- add_exp exp word_size
             smash (word_size, ArgVar id)
 
@@ -130,7 +132,7 @@ ram ra we wa d = do (_, a) <- mapM funk ra >>= funnel
                     b <- funk we
                     (_, c) <- mapM funk wa >>= funnel
                     (_, d) <- mapM funk d  >>= funnel
-                    let exp = Eram addr_size word_size a b c d
+                    let exp = Eram a b c d
                     id <- add_exp exp word_size
                     smash (word_size, ArgVar id)
 

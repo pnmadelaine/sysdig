@@ -16,10 +16,10 @@ data Expression = Earg Argument
                 | Enot Argument
                 | Ebinop BinOp Argument Argument
                 | Emux Argument Argument Argument
-                | Erom Integer Integer Argument
-                  -- addr_size word_size read_addr
-                | Eram Integer Integer Argument Argument Argument Argument
-                  -- addr_size word_size read_addr write_enable write_addr data
+                | Erom Argument
+                  -- read_addr
+                | Eram Argument Argument Argument Argument
+                  -- read_addr write_enable write_addr data
                 | Econcat Argument Argument
                 | Eslice Integer Integer Argument
                 | Eselect Integer Argument

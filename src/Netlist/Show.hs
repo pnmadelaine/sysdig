@@ -31,10 +31,9 @@ instance Show Expression where
                                     ++ " " ++ show b
   show (Emux a b c)       = "MUX " ++ show a ++ " " ++ show b
                                              ++ " " ++ show c
-  show (Erom i j a)       = "ROM " ++ show i ++ " " ++ show j ++ " " ++ show a
-  show (Eram i j a b c d) = "RAM " ++ show i ++ " " ++ show j
-                                             ++ " " ++ show a ++ " " ++ show b
-                                             ++ " " ++ show c ++ " " ++ show d
+  show (Erom a)           = "ROM " ++ show a
+  show (Eram a b c d)     = "RAM " ++ show a ++ " " ++ show b
+                            ++ " " ++ show c ++ " " ++ show d
   show (Econcat a b)      = "CONCAT " ++ show a ++ " " ++ show b
   show (Eslice i j a)     = "SLICE "  ++ show i ++ " " ++ show j
                                                 ++ " " ++ show a

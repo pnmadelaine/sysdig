@@ -76,19 +76,15 @@ expression = do op <- try binop
                 return $ Emux a b c
 
          <|> do try (symbol "ROM")
-                i <- natural
-                j <- natural
                 a <- argument
-                return $ Erom i j a
+                return $ Erom a
 
          <|> do try (symbol "RAM")
-                i <- natural
-                j <- natural
                 a <- argument
                 b <- argument
                 c <- argument
                 d <- argument
-                return $ Eram i j a b c d
+                return $ Eram a b c d
 
          <|> do try (symbol "CONCAT")
                 a <- argument

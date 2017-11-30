@@ -7,6 +7,9 @@ import qualified Data.Set as Set
 import Control.Monad (foldM, mapM_)
 import Data.Map.Lazy ((!))
 
+addr_size = 8
+word_size = 8
+
 check_equation :: (Map.Map Ident Integer) -> Equation -> Bool
 check_equation sizes (id, exp) =
   let size_arg a = case a of
@@ -21,10 +24,10 @@ check_equation sizes (id, exp) =
     Ebinop op a b    -> n == size_arg a && n == size_arg b
     Emux a b c       -> 1 == size_arg a
                      && n == size_arg b && n == size_arg b
-    Erom i j a       -> i == size_arg a && j == n
-    Eram i j a b c d -> i == size_arg a && i == size_arg c
-                     && 1 == size_arg b && j == size_arg d
-                     && j == n
+    Erom a           -> addr_size == size_arg a && word_size == n
+    Eram a b c d     -> addr_size == size_arg a && addr_size == size_arg c
+                     && 1 == size_arg b && word_size == size_arg d
+                     && word_size == n
     Econcat a b      -> n == size_arg a + size_arg b
     Eslice i j a     -> j <= size_arg a && n == j-i
     Eselect i a      -> i < size_arg a
@@ -93,12 +96,12 @@ get_idents expr =
   case expr of
   Earg (ArgVar i)           -> i:foo
   Enot (ArgVar i)           -> i:foo
-  Erom _ _ (ArgVar i)       -> i:foo
+  Erom (ArgVar i)           -> i:foo
   Econcat (ArgVar i) _      -> i:foo
   Eslice _ _ (ArgVar i)     -> i:foo
   Eselect _(ArgVar i)       -> i:foo
   Ebinop _ (ArgVar i) _     -> i:foo
   Emux (ArgVar i) _ _       -> i:foo
-  Eram _ _ (ArgVar i) _ _ _ -> i:foo
+  Eram (ArgVar i) _ _ _     -> i:foo
   _                         -> foo
 
