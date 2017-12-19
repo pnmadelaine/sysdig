@@ -4,7 +4,6 @@ import Netlist.Ast
 import Netlist.Build
 
 import Control.Monad (mapM)
-import qualified Data.List as List
 
 data Instr = Instr { inst_opcode :: [Argument]
                    , inst_rs     :: [Argument]
@@ -46,7 +45,7 @@ nadder c (x:xs) (y:ys) = do
   return (c_out, z:zs)
 
 reg_names :: [Ident]
-reg_names = ["$zero", "$at"]
+reg_names = ["zero", "at"]
 
 -- direction number_of_shifts value
 shift :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
@@ -57,19 +56,8 @@ program_counter :: Instr -> Alu_flag -> Jazz [Argument]
 extend :: (Bit a, Bit b) => a -> Integer -> [b] -> Jazz [Argument]
 
 fetch :: Bit a => [a] -> Jazz [Argument]
-fetch = rom
 
 decode :: Bit a => [a] -> Jazz Instr
-decode instr =
-	return {inst_opcode = List.drop 6 instr
-				, inst_rs = List.take 5 (List.drop 11 instr)
-				, inst_rd = List.take 5 (List.drop 21 instr)
-				, inst_rt = List.take 5 (List.drop 16 instr)
-				, inst_shamt = List.take 5 (List.drop 26 instr)
-				, inst_funct = List.take 6 instr
-				, inst_imm = List.take 16 instr
-				, inst_addr = List.take 26 instr
-				}
 
 get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
