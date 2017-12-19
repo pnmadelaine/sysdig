@@ -31,20 +31,11 @@ value :: Map.Map Ident Value -> Argument -> Value
 value m (ArgVar i) = m ! i
 value _ (ArgCst c) = c
 
-apply_op :: BinOp -> [Bool] -> [Bool] -> [Bool]
-apply_op op a b =
-  let f = case op of
-            Or   -> \(x,y) -> x || y
-            Xor  -> \(x,y) -> x /= y
-            And  -> \(x,y) -> x && y
-            Nand -> \(x,y) -> not(x&&y)
-  in
-  List.map f (List.zip a b)
-
 get_slice :: Integer -> Integer -> [Bool] -> [Bool]
-get_slice 0 0 _      = []
-get_slice 0 j (x:xs) = x:(get_slice 0 (j-1) xs)
-get_slice i j (x:xs) = get_slice (i-1) (j-1) xs
+--get_slice 0 0 _      = []
+--get_slice 0 j (x:xs) = x:(get_slice 0 (j-1) xs)
+--get_slice i j (x:xs) = get_slice (i-1) (j-1) xs
+get_slice i j l = List.genericDrop i $ List.genericTake j l
 
 update_vars :: Ram -> Ram -> Vars -> Vars -> Equation -> Vars
 update_vars rom ram regs vars (id, exp) =
