@@ -3,10 +3,10 @@ module Main where
 import Netlist.Ast
 import Netlist.Show
 
-import qualified Cpu
+import qualified Alu
 
-netlist = Cpu.netlist
+netlist = Alu.netlist
 
 main :: IO ()
-main = writeFile "cpu.net" $ show netlist
+main = writeFile "alu.net" $ show netlist
 
