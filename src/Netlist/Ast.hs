@@ -1,6 +1,7 @@
 module Netlist.Ast where
 
 import qualified Data.Map.Strict as Map
+import qualified Data.List as List
 
 type Ident = String
 type Value = [Bool]
@@ -41,4 +42,38 @@ empty_netlist = Netlist { netlist_eq  = []
                         , netlist_out = []
                         , netlist_var = []
                         }
+
+apply_op :: BinOp -> [Bool] -> [Bool] -> [Bool]
+apply_op op a b =
+  let f = case op of
+            Or   -> \(x,y) -> x || y
+            Xor  -> \(x,y) -> x /= y
+            And  -> \(x,y) -> x && y
+            Nand -> \(x,y) -> not(x&&y)
+  in
+  List.map f (List.zip a b)
+
+get_idents :: Expression -> [Ident]
+get_idents expr =
+  let bar = case expr of
+            Emux _ _ (ArgVar i) -> [i]
+            _                   -> []
+  in
+  let foo = case expr of
+            Ebinop _ _ (ArgVar i) -> i:bar
+            Emux _ (ArgVar i) _   -> i:bar
+            Econcat _ (ArgVar i)  -> i:bar
+            _                     -> bar
+  in
+  case expr of
+  Earg (ArgVar i)           -> i:foo
+  Enot (ArgVar i)           -> i:foo
+  Erom (ArgVar i)           -> i:foo
+  Econcat (ArgVar i) _      -> i:foo
+  Eslice _ _ (ArgVar i)     -> i:foo
+  Eselect _(ArgVar i)       -> i:foo
+  Ebinop _ (ArgVar i) _     -> i:foo
+  Emux (ArgVar i) _ _       -> i:foo
+  Eram (ArgVar i) _ _ _     -> i:foo
+  _                         -> foo
 
