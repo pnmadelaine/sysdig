@@ -30,6 +30,14 @@ class Bit a where
 class Wire a where
   prog :: a -> Jazz [Argument]
 
+instance Bit a => Wire [a] where
+  prog l = mapM funk l
+
+instance Wire a => Wire (Jazz a) where
+  prog x = do
+    l <- x
+    prog l
+
 instance Bit Argument where
   funk x = return x
 
@@ -72,8 +80,8 @@ input id n = do s <- get
                              }
                 put s' >> smash (n, ArgVar id)
 
-output :: Bit a => Ident -> [a] -> Jazz ()
-output id l = do w <- mapM funk l
+output :: Wire a => Ident -> a -> Jazz ()
+output id l = do w <- prog l
                  (n, a) <- funnel w
                  let exp = Earg a
                  s <- get
@@ -87,8 +95,8 @@ output id l = do w <- mapM funk l
 read_reg :: Ident -> Integer -> Jazz [Argument]
 read_reg id n = smash (n, ArgVar id)
 
-write_reg :: Bit a => Ident -> [a] -> Jazz ()
-write_reg id x = do (n, ArgVar id') <- mapM funk x >>= funnel
+write_reg :: Wire a => Ident -> a -> Jazz ()
+write_reg id x = do (n, ArgVar id') <- prog x >>= funnel
                     let exp = Ereg id'
                     s <- get
                     let s' = Env { env_ids   = Map.insert exp id (env_ids s)
@@ -113,25 +121,25 @@ binop op x y = do a <- funk x
                   id <- add_exp exp n
                   return (ArgVar id)
 
-mux :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
+mux :: (Bit a, Wire b, Wire c) => a -> b -> c -> Jazz [Argument]
 mux a xs ys = do a <- funk a
-                 (n, x) <- mapM funk xs >>= funnel
-                 (_, y) <- mapM funk ys >>= funnel
+                 (n, x) <- prog xs >>= funnel
+                 (_, y) <- prog ys >>= funnel
                  let exp = Emux a x y
                  id <- add_exp exp n
                  smash (n, (ArgVar id))
 
-rom :: Bit a => [a] -> Jazz [Argument]
-rom xs = do (_, a) <- mapM funk xs >>= funnel
+rom :: Wire a => a -> Jazz [Argument]
+rom xs = do (_, a) <- prog xs >>= funnel
             let exp = Erom a
             id <- add_exp exp word_size
             smash (word_size, ArgVar id)
 
-ram :: (Bit a, Bit b, Bit c, Bit d) => [a] -> b -> [c] -> [d] -> Jazz [Argument]
-ram ra we wa d = do (_, a) <- mapM funk ra >>= funnel
+ram :: (Wire a, Bit b, Wire c, Wire d) => a -> b -> c -> d -> Jazz [Argument]
+ram ra we wa d = do (_, a) <- prog ra >>= funnel
                     b <- funk we
-                    (_, c) <- mapM funk wa >>= funnel
-                    (_, d) <- mapM funk d  >>= funnel
+                    (_, c) <- prog wa >>= funnel
+                    (_, d) <- prog d  >>= funnel
                     let exp = Eram a b c d
                     id <- add_exp exp word_size
                     smash (word_size, ArgVar id)
@@ -145,9 +153,9 @@ x /\ y = binop And x y
 (<>) :: (Bit a, Bit b) => a -> b -> Jazz Argument
 x <> y = binop Xor x y
 
-conc :: (Bit a, Bit b) => [a] -> [b] -> Jazz [Argument]
-conc x y = do w1 <- mapM funk x
-              w2 <- mapM funk y
+conc :: (Wire a, Wire b) => a -> b -> Jazz [Argument]
+conc x y = do w1 <- prog x
+              w2 <- prog y
               return $ w1 ++ w2
 
 funnel :: [Argument] -> Jazz (Integer, Argument)
@@ -165,8 +173,8 @@ select i x = do a <- funk x
                 id <- add_exp exp n
                 return (ArgVar id)
 
-squeeze :: Bit a => [a] -> Jazz [Argument]
-squeeze xs = mapM funk xs >>= funnel >>= smash
+squeeze :: Wire a => a -> Jazz [Argument]
+squeeze xs = prog xs >>= funnel >>= smash
 
 build :: Jazz () -> Netlist
 build x =
