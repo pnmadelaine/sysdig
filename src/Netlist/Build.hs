@@ -41,8 +41,10 @@ instance Wire a => Wire (Jazz a) where
 instance Bit Argument where
   funk x = return x
 
-instance Bit (Jazz Argument) where
-  funk x = x
+instance Bit a => Bit (Jazz a) where
+  funk x = do
+    y <- x
+    funk y
 
 instance Bit Bool where
   funk x = return $ ArgCst [x]
