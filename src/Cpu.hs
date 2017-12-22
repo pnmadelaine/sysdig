@@ -3,17 +3,17 @@ module Cpu where
 import Netlist.Ast
 import Netlist.Build
 
-import Control.Monad (mapM)
-import qualified Data.List as List
+import Control.Monad (mapM, mapM_)
+import Data.List as List
 
-data Instr = Instr { inst_opcode :: [Argument]
-                   , inst_rs     :: [Argument]
-                   , inst_rd     :: [Argument]
-                   , inst_rt     :: [Argument]
-                   , inst_shamt  :: [Argument]
-                   , inst_funct  :: [Argument]
-                   , inst_imm    :: [Argument]
-                   , inst_addr   :: [Argument]
+data Instr = Instr { instr_opcode :: [Argument]
+                   , instr_rs     :: [Argument]
+                   , instr_rd     :: [Argument]
+                   , instr_rt     :: [Argument]
+                   , instr_shamt  :: [Argument]
+                   , instr_funct  :: [Argument]
+                   , instr_imm    :: [Argument]
+                   , instr_addr   :: [Argument]
                    }
 
 data Alu_control = Alu_control { alu_enable_carry :: Argument
@@ -46,7 +46,30 @@ nadder c (x:xs) (y:ys) = do
   return (c_out, z:zs)
 
 reg_names :: [Ident]
-reg_names = ["$zero", "$at"]
+reg_names = ["zero",
+             "at",
+             "v0", "v1",
+             "a0", "a1", "a2", "a3",
+             "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+             "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+             "t8", "t9",
+             "k0", "k1",
+             "gp",
+             "sp",
+             "fp",
+             "ra"
+             ]
+
+multiplex :: Bit a => (Integer -> Jazz [Argument]) -> [a] -> Jazz [Argument]
+multiplex f xs =
+  let aux :: Bit a => Integer -> Integer -> [a] -> Jazz [Argument]
+      aux _ j [] = f j
+      aux i j (x:xs) =
+        mux x
+          (aux (2*i) (j+i) xs)
+          (aux (2*i) j     xs)
+  in
+  aux 1 0 xs
 
 -- direction number_of_shifts value
 shift :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
@@ -74,17 +97,18 @@ shift a ws xs =
 fetch :: Bit a => [a] -> Jazz [Argument]
 fetch = rom
 
-decode :: Bit a => [a] -> Jazz Instr
-decode instr =
-	return {inst_opcode = List.drop 6 instr
-				, inst_rs = List.take 5 (List.drop 11 instr)
-				, inst_rd = List.take 5 (List.drop 21 instr)
-				, inst_rt = List.take 5 (List.drop 16 instr)
-				, inst_shamt = List.take 5 (List.drop 26 instr)
-				, inst_funct = List.take 6 instr
-				, inst_imm = List.take 16 instr
-				, inst_addr = List.take 26 instr
-				}
+decode :: Wire a => a -> Jazz Instr
+decode w = do
+  instr <- prog w
+  return $ Instr { instr_opcode = List.drop 6 instr
+                 , instr_rs = List.take 5 (List.drop 11 instr)
+                 , instr_rd = List.take 5 (List.drop 21 instr)
+                 , instr_rt = List.take 5 (List.drop 16 instr)
+                 , instr_shamt = List.take 5 (List.drop 26 instr)
+                 , instr_funct = List.take 6 instr
+                 , instr_imm = List.take 16 instr
+                 , instr_addr = List.take 26 instr
+                 }
 
 -- get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
@@ -98,11 +122,11 @@ decode instr =
 -- instr data addr
 -- memory :: (Bit a, Bit b) => Instr -> [a] -> [b] -> Jazz [Argument]
 
-cpu = do xs <- input "x" 8
-         ys <- input "y" 3
-         [d] <- input "d" 1
-         zs <- shift d ys xs
-         output "z" zs
+f i = prog [mod i 2 == 1]
+
+cpu = do xs <- input "x" 4
+         ys <- multiplex f xs
+         output "y" ys
 
 netlist = build cpu
 
