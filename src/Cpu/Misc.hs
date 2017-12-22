@@ -64,7 +64,12 @@ shift a ws xs =
 -- program_counter :: Instr -> Alu_flag -> Jazz [Argument]
 
 -- signed n value
--- extend :: (Bit a, Bit b) => a -> Integer -> [b] -> Jazz [Argument]
+extend :: (Bit a, Bit b) => a -> Integer -> [b] -> Jazz [Argument]
+extend s n xs = do
+  a <- s /\ (List.head $ List.reverse xs)
+  conc xs $ mux a
+              (List.genericReplicate n True)
+              (List.genericReplicate n False)
 
 fetch :: Bit a => [a] -> Jazz [Argument]
 fetch = rom
