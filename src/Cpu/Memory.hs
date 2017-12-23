@@ -1,6 +1,6 @@
 module Cpu.Memory where
 
-import Netlist.Build
+import Netlist.Jazz
 import Cpu.Misc
 
 import Control.Monad (mapM, mapM_)

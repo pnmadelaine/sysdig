@@ -1,6 +1,6 @@
 module Cpu.Misc where
 
-import Netlist.Build
+import Netlist.Jazz
 
 import Control.Monad (mapM, mapM_)
 import Data.List as List

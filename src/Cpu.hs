@@ -1,7 +1,7 @@
 module Cpu where
 
 import Netlist.Ast
-import Netlist.Build
+import Netlist.Jazz
 import Cpu.Misc
 import Cpu.Alu
 import Cpu.Memory

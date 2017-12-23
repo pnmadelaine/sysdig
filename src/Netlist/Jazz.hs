@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Netlist.Build where
+module Netlist.Jazz where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
@@ -25,43 +25,6 @@ data Env = Env { env_ids   :: Map.Map Expression Ident
 
 type Jazz = State Env
 
-newtype Bit = Bit Argument
-newtype Wire = Wire (Integer, Argument)
-
-
-class Bt a where
-  bit :: a -> Jazz Bit
-
-instance Bt Bit where
-  bit x = return x
-
-instance Bt a => Bt (Jazz a) where
-  bit x = x >>= bit
-
-instance Bt Bool where
-  bit x = return $ Bit (ArgCst [x])
-
-instance Bt Integer where
-  bit 0 = return $ Bit (ArgCst [False])
-  bit 1 = return $ Bit (ArgCst [True])
-
-
-class Wr a where
-  bits :: a -> Jazz [Bit]
-  wire :: a -> Jazz Wire
-
-instance Wr Wire where
-  bits = smash
-  wire x = return x
-
-instance Bt a => Wr [a] where
-  bits l = mapM bit l
-  wire l = mapM bit l >>= funnel
-
-instance Wr a => Wr (Jazz a) where
-  bits x = x >>= bits
-  wire x = x >>= wire
-
 add_exp :: Expression -> Integer -> Jazz Ident
 add_exp exp n =
   get >>= \s ->
@@ -76,6 +39,36 @@ add_exp exp n =
                in
                put s' >> return id
 
+build :: Jazz () -> Netlist
+build x =
+  let env_empty = Env { env_ids   = Map.empty
+                      , env_in    = Set.empty
+                      , env_out   = Set.empty
+                      , env_sizes = Map.empty
+                      }
+  in
+  let (_,s) = runState x env_empty in
+  let ids = Map.toAscList (env_ids s) in
+  let eqs = List.map (\(e,i) -> (i,e)) ids in
+  let input = Set.toList (env_in s) in
+  let output = Set.toList (env_out s) in
+  let var = List.map (\(_,i) -> (i, (env_sizes s) ! i)) ids
+         ++ List.map (\i -> (i, (env_sizes s) ! i)) input
+  in Netlist { netlist_eq  = eqs
+             , netlist_var = var
+             , netlist_in  = input
+             , netlist_out = output
+             }
+
+newtype Bit = Bit Argument
+class Bt a where
+  bit :: a -> Jazz Bit
+
+newtype Wire = Wire (Integer, Argument)
+class Wr a where
+  bits :: a -> Jazz [Bit]
+  wire :: a -> Jazz Wire
+
 arg_size :: Argument -> Jazz Integer
 arg_size (ArgCst v) = return (List.genericLength v)
 arg_size (ArgVar id) = do s <- get
@@ -89,11 +82,11 @@ input id n = do s <- get
                              , env_out   = env_out s
                              , env_sizes = Map.insert id n (env_sizes s)
                              }
-                put s' >> return (Wire (n, ArgVar id))
+                put s'
+                return $ Wire (n, ArgVar id)
 
 output :: Wr a => Ident -> a -> Jazz ()
-output id l = do w <- bits l
-                 Wire (n, a) <- funnel w
+output id x = do Wire (n, a) <- wire x
                  let exp = Earg a
                  s <- get
                  let s' = Env { env_ids   = Map.insert exp id $ env_ids s
@@ -145,6 +138,15 @@ binop op x y = do Bit a <- bit x
                   id <- add_exp exp n
                   return $ Bit (ArgVar id)
 
+(\/) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x \/ y = binop Or x y
+
+(/\) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x /\ y = binop And x y
+
+(<>) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x <> y = binop Xor x y
+
 mux :: (Bt a, Wr b, Wr c) => a -> b -> c -> Jazz Wire
 mux a xs ys = do Bit a <- bit a
                  Wire (_, ArgVar id') <- wire xs
@@ -170,15 +172,6 @@ ram ra we wa dt = do Wire (_, a) <- wire ra
                      id <- add_exp exp word_size
                      return $ Wire (word_size, ArgVar id)
 
-(\/) :: (Bt a, Bt b) => a -> b -> Jazz Bit
-x \/ y = binop Or x y
-
-(/\) :: (Bt a, Bt b) => a -> b -> Jazz Bit
-x /\ y = binop And x y
-
-(<>) :: (Bt a, Bt b) => a -> b -> Jazz Bit
-x <> y = binop Xor x y
-
 conc :: (Wr a, Wr b) => a -> b -> Jazz Wire
 conc x y = do Wire (n, a) <- wire x
               Wire (m, b) <- wire y
@@ -186,15 +179,11 @@ conc x y = do Wire (n, a) <- wire x
               id <- add_exp exp (n+m)
               return $ Wire (n+m, ArgVar id)
 
-funnel :: [Bit] -> Jazz Wire
-funnel ((Bit x):xs) =
-  let aux (Wire (n,a)) (Bit b) = do id <- add_exp (Econcat b a) (n+1)
-                                    return $ Wire ((n+1), (ArgVar id))
-  in
-  foldM aux (Wire (1, x)) xs
-
-smash :: Wire -> Jazz [Bit]
-smash (Wire (n, x)) = mapM (\i -> select i (Bit x)) [0..n-1]
+slice :: Wr a => Integer -> Integer -> a -> Jazz Wire
+slice i j x = do Wire (n, a) <- wire x
+                 let exp = Eslice i j a
+                 id <- add_exp exp (j-i)
+                 return $ Wire (j-i, ArgVar id)
 
 select :: Bt a => Integer -> a -> Jazz Bit
 select i x = do Bit a <- bit x
@@ -203,27 +192,32 @@ select i x = do Bit a <- bit x
                 id <- add_exp exp n
                 return $ Bit (ArgVar id)
 
-squeeze :: Wr a => a -> Jazz [Bit]
-squeeze xs = bits xs >>= funnel >>= smash
+instance Bt Bit where
+  bit x = return x
+instance Bt a => Bt (Jazz a) where
+  bit x = x >>= bit
+instance Bt Bool where
+  bit x = return $ Bit (ArgCst [x])
+instance Bt Integer where
+  bit 0 = return $ Bit (ArgCst [False])
+  bit 1 = return $ Bit (ArgCst [True])
 
-build :: Jazz () -> Netlist
-build x =
-  let env_empty = Env { env_ids   = Map.empty
-                      , env_in    = Set.empty
-                      , env_out   = Set.empty
-                      , env_sizes = Map.empty
-                      }
-  in
-  let (_,s) = runState x env_empty in
-  let ids = Map.toAscList (env_ids s) in
-  let eqs = List.map (\(e,i) -> (i,e)) ids in
-  let input = Set.toList (env_in s) in
-  let output = Set.toList (env_out s) in
-  let var = List.map (\(_,i) -> (i, (env_sizes s) ! i)) ids
-         ++ List.map (\i -> (i, (env_sizes s) ! i)) input
-  in Netlist { netlist_eq  = eqs
-             , netlist_var = var
-             , netlist_in  = input
-             , netlist_out = output
-             }
+instance Wr Wire where
+  bits (Wire (n, x)) = mapM (\i -> select i (Bit x)) [0..n-1]
+  wire x = return x
+instance Wr a => Wr (Jazz a) where
+  bits x = x >>= bits
+  wire x = x >>= wire
+instance Bt a => Wr [a] where
+  bits x = mapM bit x
+  wire x = do l <- mapM bit x
+              let aux (Wire (n,a)) (Bit b) =
+                    do id <- add_exp (Econcat b a) (n+1)
+                       return $ Wire ((n+1), (ArgVar id))
+              case l of
+                []         -> return $ Wire (0, ArgCst [])
+                (Bit x):xs -> foldM aux (Wire (1, x)) xs
+
+squeeze :: Wr a => a -> Jazz [Bit]
+squeeze = bits . wire
 
