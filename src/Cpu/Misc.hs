@@ -16,22 +16,6 @@ data Instr = Instr { instr_opcode :: [Argument]
                    , instr_addr   :: [Argument]
                    }
 
-
-reg_names :: [Ident]
-reg_names = ["zero",
-             "at",
-             "v0", "v1",
-             "a0", "a1", "a2", "a3",
-             "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
-             "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
-             "t8", "t9",
-             "k0", "k1",
-             "gp",
-             "sp",
-             "fp",
-             "ra"
-             ]
-
 multiplex :: Bit a => (Integer -> Jazz [Argument]) -> [a] -> Jazz [Argument]
 multiplex f xs =
   let aux :: Bit a => Integer -> Integer -> [a] -> Jazz [Argument]
@@ -47,7 +31,7 @@ multiplex f xs =
 shift :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
 shift a ws xs =
   let aux :: (Bit a, Bit b) => Integer -> [a] -> [b] -> Jazz [Argument]
-      aux _ [] xs = mapM funk xs
+      aux _ [] xs = mapM bit xs
       aux i (w:ws) xs = do
         xs <- aux (2*i) ws xs
         y1 <- conc
@@ -61,8 +45,7 @@ shift a ws xs =
   in
   aux 1 ws xs
 
--- program_counter :: Instr -> Alu_flag -> Jazz [Argument]
-
+-- signed and unsigned extension
 -- signed n value
 extend :: (Bit a, Bit b) => a -> Integer -> [b] -> Jazz [Argument]
 extend s n xs = do
@@ -71,12 +54,10 @@ extend s n xs = do
               (List.genericReplicate n True)
               (List.genericReplicate n False)
 
-fetch :: Bit a => [a] -> Jazz [Argument]
-fetch = rom
-
+-- decodes the instruction
 decode :: Wire a => a -> Jazz Instr
 decode w = do
-  instr <- prog w
+  instr <- bits w
   return $ Instr { instr_opcode = List.drop 6 instr
                  , instr_rs = List.take 5 (List.drop 11 instr)
                  , instr_rd = List.take 5 (List.drop 21 instr)
