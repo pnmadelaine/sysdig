@@ -185,8 +185,8 @@ slice i j x = do Wire (n, a) <- wire x
                  id <- add_exp exp (j-i)
                  return $ Wire (j-i, ArgVar id)
 
-select :: Bt a => Integer -> a -> Jazz Bit
-select i x = do Bit a <- bit x
+select :: Wr a => Integer -> a -> Jazz Bit
+select i x = do Wire (_, a) <- wire x
                 let exp = Eselect i a
                 let n = 1
                 id <- add_exp exp n
@@ -203,7 +203,7 @@ instance Bt Integer where
   bit 1 = return $ Bit (ArgCst [True])
 
 instance Wr Wire where
-  bits (Wire (n, x)) = mapM (\i -> select i (Bit x)) [0..n-1]
+  bits (Wire (n, x)) = mapM (\i -> select i (Wire (n, x))) [0..n-1]
   wire x = return x
 instance Wr a => Wr (Jazz a) where
   bits x = x >>= bits
