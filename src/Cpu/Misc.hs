@@ -15,16 +15,16 @@ data Instr = Instr { instr_opcode :: [Bit]
                    , instr_addr   :: [Bit]
                    }
 
-multiplex :: Bt a => (Integer -> Jazz [Bit]) -> [a] -> Jazz [Bit]
-multiplex f xs =
-  let aux :: Bt a => Integer -> Integer -> [a] -> Jazz [Bit]
+multiplex :: Wr a => (Integer -> Jazz Wire) -> a -> Jazz Wire
+multiplex f x =
+  let aux :: Bt a => Integer -> Integer -> [a] -> Jazz Wire
       aux _ j [] = f j
       aux i j (x:xs) =
         mux x
           (aux (2*i) (j+i) xs)
           (aux (2*i) j     xs)
   in
-  aux 1 0 xs
+  bits x >>= \l -> aux 1 0 l
 
 -- direction number_of_shifts value
 shift :: (Bt a, Bt b, Bt c) => a -> [b] -> [c] -> Jazz [Bit]
@@ -40,7 +40,7 @@ shift a ws xs =
                 (List.genericDrop i xs)
                 (List.genericReplicate i False)
         ys <- mux a y1 y2
-        mux w ys xs
+        bits $ mux w ys xs
   in
   aux 1 ws xs
 

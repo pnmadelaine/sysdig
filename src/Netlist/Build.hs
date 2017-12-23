@@ -82,14 +82,14 @@ arg_size (ArgVar id) = do s <- get
                           let n = (env_sizes s) ! id
                           return n
 
-input :: Ident -> Integer -> Jazz [Bit]
+input :: Ident -> Integer -> Jazz Wire
 input id n = do s <- get
                 let s' = Env { env_ids   = env_ids s
                              , env_in    = Set.insert id (env_in s)
                              , env_out   = env_out s
                              , env_sizes = Map.insert id n (env_sizes s)
                              }
-                put s' >> smash (Wire (n, ArgVar id))
+                put s' >> return (Wire (n, ArgVar id))
 
 output :: Wr a => Ident -> a -> Jazz ()
 output id l = do w <- bits l
@@ -112,15 +112,15 @@ new_reg id n = do s <- get
                                }
                   put s'
 
-reg_out :: Ident -> Jazz [Bit]
+reg_out :: Ident -> Jazz Wire
 reg_out id = do s <- get
                 let exp = Ereg id
                 let n = (env_sizes s) ! id
                 id' <- add_exp exp n
-                smash $ Wire (n, ArgVar id')
+                return $ Wire (n, ArgVar id')
 
 reg_in :: Wr a => Ident -> a -> Jazz ()
-reg_in id x = do Wire (n, ArgVar id') <- bits x >>= funnel
+reg_in id x = do Wire (n, ArgVar id') <- wire x
                  let exp = Earg (ArgVar id')
                  s <- get
                  let s' = Env { env_ids   = Map.insert exp id (env_ids s)
@@ -145,7 +145,7 @@ binop op x y = do Bit a <- bit x
                   id <- add_exp exp n
                   return $ Bit (ArgVar id)
 
-mux :: (Bt a, Wr b, Wr c) => a -> b -> c -> Jazz [Bit]
+mux :: (Bt a, Wr b, Wr c) => a -> b -> c -> Jazz Wire
 mux a xs ys = do Bit a <- bit a
                  Wire (_, ArgVar id') <- wire xs
                  Wire (_, y) <- wire ys
@@ -153,22 +153,22 @@ mux a xs ys = do Bit a <- bit a
                  let n = (env_sizes s) ! id'
                  let exp = Emux a (ArgVar id') y
                  id <- add_exp exp n
-                 smash $ Wire (n, ArgVar id)
+                 return $ Wire (n, ArgVar id)
 
-rom :: Wr a => a -> Jazz [Bit]
-rom xs = do Wire (_, a) <- bits xs >>= funnel
-            let exp = Erom a
-            id <- add_exp exp word_size
-            smash $ Wire (word_size, ArgVar id)
+rom :: Wr a => a -> Jazz Wire
+rom x = do Wire (_, a) <- wire x
+           let exp = Erom a
+           id <- add_exp exp word_size
+           return $ Wire (word_size, ArgVar id)
 
-ram :: (Wr a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz [Bit]
-ram ra we wa dt = do Wire (_, a) <- bits ra >>= funnel
+ram :: (Wr a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz Wire
+ram ra we wa dt = do Wire (_, a) <- wire ra
                      Bit b <- bit we
-                     Wire (_, c) <- bits wa >>= funnel
-                     Wire (_, d) <- bits dt >>= funnel
+                     Wire (_, c) <- wire wa
+                     Wire (_, d) <- wire dt
                      let exp = Eram a b c d
                      id <- add_exp exp word_size
-                     smash $ Wire (word_size, ArgVar id)
+                     return $ Wire (word_size, ArgVar id)
 
 (\/) :: (Bt a, Bt b) => a -> b -> Jazz Bit
 x \/ y = binop Or x y
