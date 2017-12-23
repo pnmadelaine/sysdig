@@ -9,8 +9,8 @@ import Data.List as List
 
 data Alu_control = Alu_control { alu_enable_carry :: Bit
                                , alu_carry_in     :: Bit
-                               , alu_force_or   :: Bit
-                               , alu_disable_and   :: Bit
+                               , alu_enable_xor   :: Bit
+                               , alu_enable_and   :: Bit
                                , alu_invert_x     :: Bit
                                , alu_invert_y     :: Bit
                                }
@@ -31,12 +31,12 @@ fullalu ctrl a b c = do
   a1 <- a <> (alu_invert_x ctrl)
   b1 <- b <> (alu_invert_y ctrl)
   r <- ((a1 /\ b1) \/ ((a1 \/ b1) /\ c)) /\ (alu_enable_carry ctrl)
-  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_disable_and ctrl)) ) <> (alu_force_or ctrl)
+  s <- ((a1 <> b1 <> c) /\ (alu_enable_xor ctrl)) \/ (a1 /\ b1 /\ (alu_enable_and ctrl))
   return (r, s)
 
---d tracks if the result is zero
+-- d tracks if the result is zero
 nalu :: (Bt a, Bt b, Bt c) => Alu_control -> [a] -> [b] -> c -> Jazz (Bit, [Bit], Bit)
-nalu ctrl [] [] c= do
+nalu ctrl [] [] c = do
   x <- bit c
   cst_true <- bit True
   return (x, [], cst_true)
@@ -46,14 +46,14 @@ nalu ctrl (x:xs) (y:ys) c = do
   d' <- d /\ (neg z)
   return (c_out, z:zs, d)
 
-
 alu :: (Bt a, Bt b) => Alu_control -> [a] -> [b] -> Jazz (Alu_flag, [Bit])
 alu ctrl x y = do
   (c_out, z, d) <- nalu ctrl x y (alu_carry_in ctrl)
-  return (Alu_flag { carry_out = c_out
-                   , is_zero = d
-                   }
-          ,z)
+  return ( Alu_flag { carry_out = c_out
+                    , is_zero = d
+                    }
+         , z
+         )
 
 --decides how immediate is extended
 extension_mode :: Instr -> Jazz Bit
@@ -78,8 +78,8 @@ computing_mode instr value_rt immediate = do
   y <- bits (slice 3 7 (instr_opcode instr))
   bit_ctrl <- isZero y
   answ <- bits (mux bit_ctrl immediate value_rt) --sous reserve que mux 0 a b = a et mux 1 a b = b
-  return answ 
-  
+  return answ
+
 
 alu_inputs :: Instr -> Jazz ([Bit],[Bit])
 alu_inputs instr = do
@@ -90,10 +90,3 @@ alu_inputs instr = do
   input2 <- computing_mode instr value_rt immediate
   return (value_rs, input2)
 
-
-
-
-
-
-
-  

@@ -6,12 +6,21 @@ import Cpu.Misc
 import Cpu.Alu
 import Cpu.Memory
 
-ff i = wire [mod i 2 == 1, mod (div i 2) 2 == 1]
+f = Bit (ArgCst [False])
+t = Bit (ArgCst [True])
 
-cpu = do init_registers
-         xs <- input "addr" 5
-         ys <- read_reg xs
-         output "data" ys
+ctrl = Alu_control { alu_enable_carry = f
+                   , alu_carry_in     = f
+                   , alu_enable_xor   = t
+                   , alu_enable_and   = t
+                   , alu_invert_x     = f
+                   , alu_invert_y     = f
+                   }
+
+cpu = do xs <- bits $ input "x" 4
+         ys <- bits $ input "y" 4
+         (_, zs, _) <- nalu ctrl xs ys False
+         output "z" zs
 
 netlist = build cpu
 
