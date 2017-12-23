@@ -69,8 +69,6 @@ decode w = do
 
 -- get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
--- alu :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Jazz (Alu_flag, [Bit])
-
 -- alu_inputs :: Instr -> Jazz ([Bit], [Bit])
 
 -- instr ram_output alu_output alu_flags
