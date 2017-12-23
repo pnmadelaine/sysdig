@@ -1,24 +1,23 @@
 module Cpu.Misc where
 
-import Netlist.Ast
 import Netlist.Build
 
 import Control.Monad (mapM, mapM_)
 import Data.List as List
 
-data Instr = Instr { instr_opcode :: [Argument]
-                   , instr_rs     :: [Argument]
-                   , instr_rd     :: [Argument]
-                   , instr_rt     :: [Argument]
-                   , instr_shamt  :: [Argument]
-                   , instr_funct  :: [Argument]
-                   , instr_imm    :: [Argument]
-                   , instr_addr   :: [Argument]
+data Instr = Instr { instr_opcode :: [Bit]
+                   , instr_rs     :: [Bit]
+                   , instr_rd     :: [Bit]
+                   , instr_rt     :: [Bit]
+                   , instr_shamt  :: [Bit]
+                   , instr_funct  :: [Bit]
+                   , instr_imm    :: [Bit]
+                   , instr_addr   :: [Bit]
                    }
 
-multiplex :: Bit a => (Integer -> Jazz [Argument]) -> [a] -> Jazz [Argument]
+multiplex :: Bt a => (Integer -> Jazz [Bit]) -> [a] -> Jazz [Bit]
 multiplex f xs =
-  let aux :: Bit a => Integer -> Integer -> [a] -> Jazz [Argument]
+  let aux :: Bt a => Integer -> Integer -> [a] -> Jazz [Bit]
       aux _ j [] = f j
       aux i j (x:xs) =
         mux x
@@ -28,9 +27,9 @@ multiplex f xs =
   aux 1 0 xs
 
 -- direction number_of_shifts value
-shift :: (Bit a, Bit b, Bit c) => a -> [b] -> [c] -> Jazz [Argument]
+shift :: (Bt a, Bt b, Bt c) => a -> [b] -> [c] -> Jazz [Bit]
 shift a ws xs =
-  let aux :: (Bit a, Bit b) => Integer -> [a] -> [b] -> Jazz [Argument]
+  let aux :: (Bt a, Bt b) => Integer -> [a] -> [b] -> Jazz [Bit]
       aux _ [] xs = mapM bit xs
       aux i (w:ws) xs = do
         xs <- aux (2*i) ws xs
@@ -47,15 +46,15 @@ shift a ws xs =
 
 -- signed and unsigned extension
 -- signed n value
-extend :: (Bit a, Bit b) => a -> Integer -> [b] -> Jazz [Argument]
+extend :: (Bt a, Bt b) => a -> Integer -> [b] -> Jazz [Bit]
 extend s n xs = do
   a <- s /\ (List.head $ List.reverse xs)
-  conc xs $ mux a
+  bits $ conc xs $ mux a
               (List.genericReplicate n True)
               (List.genericReplicate n False)
 
 -- decodes the instruction
-decode :: Wire a => a -> Jazz Instr
+decode :: Wr a => a -> Jazz Instr
 decode w = do
   instr <- bits w
   return $ Instr { instr_opcode = List.drop 6 instr
@@ -70,13 +69,13 @@ decode w = do
 
 -- get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
--- alu :: (Bit a, Bit b) => Instr -> [a] -> [b] -> Jazz (Alu_flag, [Argument])
+-- alu :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Jazz (Alu_flag, [Bit])
 
--- alu_inputs :: Instr -> Jazz ([Argument], [Argument])
+-- alu_inputs :: Instr -> Jazz ([Bit], [Bit])
 
 -- instr ram_output alu_output alu_flags
--- write_output :: (Bit a, Bit b) => Instr -> [a] -> [b] -> Alu_flag -> Jazz ()
+-- write_output :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Alu_flag -> Jazz ()
 
 -- instr data addr
--- memory :: (Bit a, Bit b) => Instr -> [a] -> [b] -> Jazz [Argument]
+-- memory :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Jazz [Bit]
 
