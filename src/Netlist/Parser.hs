@@ -8,9 +8,28 @@ import Text.Parsec.String
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language
 
-lexer = Tok.makeTokenParser emptyDef
+def = Tok.LanguageDef
+        { Tok.commentStart    = ""
+        , Tok.commentEnd      = ""
+        , Tok.commentLine     = "#"
+        , Tok.nestedComments  = False
+        , Tok.identStart      = char '_' <|> letter
+        , Tok.identLetter     = letter <|> digit <|> char '\'' <|> char '_'
+        , Tok.opStart         = anyToken
+        , Tok.opLetter        = anyToken
+        , Tok.reservedNames   = [ "INPUT", "OUTPUT", "VAR", "IN"
+                                , "OR", "XOR", "AND", "NAND"
+                                , "REG", "NOT", "MUX", "ROM", "RAM"
+                                , "CONCAT", "SLICE", "SELECT"
+                                ]
+        , Tok.reservedOpNames = []
+        , Tok.caseSensitive   = True
+        }
 
-symbol = Tok.symbol lexer
+lexer = Tok.makeTokenParser def
+
+symbol  = Tok.symbol lexer
+ident   = Tok.identifier lexer
 natural = Tok.natural lexer
 
 binop :: Parser BinOp
@@ -21,18 +40,6 @@ binop = try (symbol "OR"   >> return Or)
 
 spaces :: Parser ()
 spaces = skipMany1 space
-
-ident :: Parser Ident
-ident = do s <- aux letter
-           l <- many $ aux (letter <|> char '\'' <|> digit)
-           symbol ""
-           return $ List.foldr (++) "" (s:l)
-  where aux :: Parser Char -> Parser String
-        aux p = do char '_'
-                   a <- p
-                   return $ '_':a:[]
-            <|> do a <- p
-                   return $ [a]
 
 ident_with_size :: Parser (Ident, Integer)
 ident_with_size = do id <- ident
@@ -47,7 +54,6 @@ constant = do x <- many1 (oneOf "01")
               return $ List.reverse (List.map aux x)
   where aux '0' = False
         aux '1' = True
-
 
 argument :: Parser Argument
 argument = do x <- constant

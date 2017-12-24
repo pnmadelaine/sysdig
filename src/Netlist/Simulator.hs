@@ -6,14 +6,8 @@ import Data.Map.Lazy ((!))
 
 import Netlist.Ast
 
-word_size :: Int
-word_size = 8
-
-addr_size :: Int
-addr_size = 8
-
 def :: Value
-def = List.replicate word_size False
+def = List.genericReplicate word_size False
 
 int_of_bool_list :: [Bool] -> Integer
 int_of_bool_list l = aux 0 (List.reverse l)
