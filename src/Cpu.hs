@@ -1,10 +1,13 @@
 module Cpu where
 
+import qualified Data.List as List
+
 import Netlist.Ast
 import Netlist.Jazz
 import Cpu.Misc
 import Cpu.Alu
 import Cpu.Memory
+import Cpu.Branch
 
 f = Bit (ArgCst [False])
 t = Bit (ArgCst [True])
@@ -17,10 +20,10 @@ ctrl = Alu_control { alu_enable_carry = f
                    , alu_invert_y     = f
                    }
 
-cpu = do xs <- bits $ input "x" 4
-         ys <- bits $ input "y" 4
-         (_, zs, _) <- nalu ctrl xs ys False
-         output "z" zs
+cpu = do init_registers
+         instr <- decode fetch
+         write_reg (List.replicate 5 False) (List.replicate 32 True)
+         branch instr
 
 netlist = build cpu
 

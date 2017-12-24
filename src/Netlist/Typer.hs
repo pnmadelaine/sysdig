@@ -7,9 +7,6 @@ import qualified Data.Set as Set
 import Control.Monad (foldM, mapM_)
 import Data.Map.Lazy ((!))
 
-addr_size = 8
-word_size = 8
-
 check_equation :: (Map.Map Ident Integer) -> Equation -> Bool
 check_equation sizes (id, exp) =
   let size_arg a = case a of

@@ -36,25 +36,11 @@ read_reg x =
   in
   multiplex f x
 
-
-write_reg :: (Bt a, Bt b) => [a] -> [b] -> Jazz ()
+write_reg :: (Wr a, Wr b) => a -> b -> Jazz ()
 write_reg addr xs =
   let g :: Wr a => Integer -> a -> Integer -> Jazz Wire
       g i x j = if i == j then wire x
                           else reg_out (nth i registers_names)
   in
   mapM_ (\i -> reg_in (nth i registers_names) (multiplex (g i xs) addr)) [1..31]
-
--- reads pc and fetches the instruction
-fetch :: Jazz [Bit]
-fetch = do
-  x <- reg_out "pc"
-  bits $ rom x
-
--- updates the pc at the end of the cycle
-branch :: Instr -> Jazz ()
-branch instr = do
-  xs <- reg_out "pc"
-  ys <- bits xs -- todo: branching 
-  reg_in "pc" ys
 

@@ -3,6 +3,11 @@ module Netlist.Ast where
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
 
+word_size :: Integer
+word_size = 8
+addr_size :: Integer
+addr_size = 32
+
 type Ident = String
 type Value = [Bool]
 

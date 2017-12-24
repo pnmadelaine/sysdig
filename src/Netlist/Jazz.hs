@@ -14,9 +14,6 @@ import Netlist.Ast
 import Netlist.Show
 import Control.Monad.State.Lazy
 
-addr_size = 8
-word_size = 8
-
 data Env = Env { env_ids   :: Map.Map Expression Ident
                , env_in    :: Set.Set Ident
                , env_out   :: Set.Set Ident
