@@ -6,6 +6,7 @@ import Netlist.Parser (read_netlist)
 import Netlist.Typer
 import Netlist.Scheduler
 import Netlist.Simulator 
+import Netlist.Opt
 
 import System.IO
 import System.Environment
@@ -98,6 +99,7 @@ main = do (options, files) <- getArgs >>= get_options
           let file_path = List.head files
           -- TODO: check file has .net extension
           let output_path = dropExtension file_path ++ "_sch" ++ ".net"
+          let opt_path = dropExtension file_path ++ "_opt" ++ ".net"
           code <- readFile file_path
           let net = read_netlist code
           case verify net of
@@ -107,11 +109,13 @@ main = do (options, files) <- getArgs >>= get_options
                 Left err      -> putStrLn err
                 Right net_sch -> do
                   writeFile output_path $ show net_sch
+                  let net_opt = optimize net
+                  writeFile opt_path $ show net_opt
                   if List.elem PrintOnly options then
                     return ()
                   else do
                     (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options
                     vars <- read_netlist_in net
-                    (ram', vars') <- simulate n rom ram vars net_sch
+                    (ram', vars') <- simulate n rom ram vars net_opt
                     print_vars vars' (netlist_out net)
 

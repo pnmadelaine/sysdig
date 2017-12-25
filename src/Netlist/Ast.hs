@@ -2,6 +2,7 @@ module Netlist.Ast where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
+import qualified Data.Set as Set
 
 word_size :: Integer
 word_size = 8
@@ -38,6 +39,35 @@ data Netlist = Netlist { netlist_eq  :: [Equation]
                        , netlist_out :: [Ident]
                        , netlist_var :: [(Ident,Integer)]
                        }
+
+data Netmap = Netmap { netmap_eqs :: Map.Map Ident Expression
+                     , netmap_ids :: Map.Map Expression Ident
+                     , netmap_in  :: Set.Set Ident
+                     , netmap_out :: Set.Set Ident
+                     , netmap_sizes :: Map.Map Ident Integer
+                     }
+
+netmap_empty = Netmap { netmap_eqs = Map.empty
+                      , netmap_ids = Map.empty
+                      , netmap_in = Set.empty
+                      , netmap_out = Set.empty
+                      , netmap_sizes = Map.empty
+                      }
+
+netlist_from_netmap x =
+  Netlist { netlist_eq = Map.toAscList $ netmap_eqs x
+          , netlist_in = Set.toList $ netmap_in x
+          , netlist_out = Set.toList $ netmap_out x
+          , netlist_var = Map.toAscList $ netmap_sizes x
+          }
+
+netmap_from_netlist x =
+  Netmap { netmap_eqs = Map.fromList $ netlist_eq x
+         , netmap_ids = Map.fromList $ List.map (\(i,e) -> (e,i)) (netlist_eq x)
+         , netmap_in = Set.fromList $ netlist_in x
+         , netmap_out = Set.fromList $ netlist_out x
+         , netmap_sizes = Map.fromList $ netlist_var x
+         }
 
 type Ram  = Map.Map Integer Value
 type Vars = Map.Map Ident Value

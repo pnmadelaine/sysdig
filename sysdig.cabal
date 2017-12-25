@@ -19,7 +19,7 @@ executable simulator
    main-is:             Main.hs
    other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Scheduler
                       , Netlist.Show, Netlist.Simulator, Netlist.Typer
-                      , Graph
+                      , Graph, Netlist.Opt
    -- other-extensions:    
    build-depends:       base >=4.8 && <4.11, containers, filepath, parsec
    hs-source-dirs:      src
@@ -31,15 +31,6 @@ executable generator
                      , Cpu, Cpu.Misc, Cpu.Alu, Cpu.Memory, Cpu.Branch
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.11, containers, mtl
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-
-executable optimizer
-  main-is:             Opt.hs
-  other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Scheduler
-                     , Netlist.Show, Graph, Netlist.Typer
-  -- other-extensions:    
-  build-depends:       base >=4.8 && <4.11, containers, filepath, parsec
   hs-source-dirs:      src
   default-language:    Haskell2010
 
