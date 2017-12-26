@@ -101,6 +101,37 @@ get_rom [] = return Map.empty
 get_rom ((LoadRom path):_) = read_file path
 get_rom (_:os) = get_rom os
 
+run_simulation options name netlist = do
+  let Right net_sch = schedule netlist
+  let n = get_n options
+  rom <- get_rom options
+  ram <- get_ram options
+  if List.elem Optimize options then do
+    let opt_path = name ++ "_opt.net"
+    let Right net_opt = schedule $ optimize net_sch
+    writeFile opt_path (show net_opt)
+    vars <- read_netlist_in net_opt
+    let (ram', vars') = simulate n rom ram vars net_opt
+    print_vars vars' (netlist_out net_opt)
+  else do
+    vars <- read_netlist_in net_sch
+    let (ram', vars') = simulate n rom ram vars net_sch
+    print_vars vars' (netlist_out netlist)
+
+handle_netlist options name = do
+  code <- readFile (name ++ ".net")
+  let netlist = read_netlist code
+  let sch_path = name ++ "_sch.net"
+  case schedule netlist of
+    Left err ->
+      putStrLn err
+    Right net_sch -> do
+      writeFile sch_path (show net_sch)
+      if List.elem PrintOnly options then
+        return ()
+      else do
+        run_simulation options name netlist
+
 main :: IO ()
 main = do
   (options, files) <- getArgs >>= get_options
@@ -111,29 +142,6 @@ main = do
     case stripExtension ".net" netlist_path of
       Nothing   ->
         putStrLn "Bad extension, use .net"
-      Just name -> do
-        code <- readFile netlist_path
-        let netlist = read_netlist code
-        let sch_path = name ++ "_sch.net"
-        case schedule netlist of
-          Left err ->
-            putStrLn err
-          Right net_sch -> do
-            writeFile sch_path (show net_sch)
-            if List.elem PrintOnly options then
-              return ()
-            else do
-              let n = get_n options
-              rom <- get_rom options
-              ram <- get_ram options
-              if List.elem Optimize options then do
-                let opt_path = name ++ "_opt.net"
-                let Right net_opt = schedule $ optimize net_sch
-                writeFile opt_path (show net_opt)
-                vars <- read_netlist_in net_opt
-                let (ram', vars') = simulate n rom ram vars net_opt
-                print_vars vars' (netlist_out net_opt)
-              else do
-                vars <- read_netlist_in net_sch
-                let (ram', vars') = simulate n rom ram vars net_sch
-                print_vars vars' (netlist_out net_sch)
+      Just name ->
+        handle_netlist options name
+
