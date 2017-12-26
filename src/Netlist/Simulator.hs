@@ -55,9 +55,9 @@ update_ram vars ram (_, Eram _ we wa dt) =
     [False] -> ram
 update_ram _ ram _ = ram
 
-simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> IO (Ram, Vars)
+simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> (Ram, Vars)
 simulate 0 _ ram regs net = do
-  return (ram,regs)
+  (ram,regs)
 simulate n rom ram vars net =
   let vars' = List.foldl (update_vars rom ram vars) vars (netlist_eq net) in
   let ram'  = List.foldl (update_ram vars') ram (netlist_eq net) in

@@ -5,7 +5,7 @@ import Netlist.Show
 import Netlist.Parser (read_netlist)
 import Netlist.Typer
 import Netlist.Scheduler
-import Netlist.Simulator 
+import Netlist.Simulator
 import Netlist.Opt
 
 import System.IO
@@ -24,6 +24,7 @@ data Flag =
   | NumberOfSteps Integer
   | LoadRom FilePath
   | LoadRam FilePath
+  | Optimize
   deriving (Eq, Show)
 
 option_descriptions :: [OptDescr Flag]
@@ -40,6 +41,9 @@ option_descriptions =
   , Option [] ["ram"]
            (ReqArg LoadRam "path to bin file")
            "Load RAM file"
+  , Option ['o'] ["optimize"]
+           (NoArg Optimize)
+           "Enable optimizations"
   ]
 
 get_options :: [String] -> IO ([Flag], [String])
@@ -49,7 +53,7 @@ get_options argv =
       return (o,n)
     (_, _, errs) ->
       ioError (userError (concat errs ++ usageInfo header option_descriptions))
-    where header = "Usage: netlist file [OPTION...]..."
+    where header = "Usage: simulator file [OPTION...]..."
 
 bool_list_of_string :: String -> [Bool]
 bool_list_of_string = aux []
@@ -63,15 +67,6 @@ read_file filepath = do s  <- readFile filepath
                         let index  = [0..(List.genericLength values - 1)]
                         let l = zip index values
                         return $ Map.fromList l
-
-read_options :: (Integer,Ram,Ram) -> [Flag] -> IO (Integer,Ram,Ram)
-read_options acc         []                    = return acc
-read_options (_,rom,ram) (NumberOfSteps n:os)  = read_options (n,rom,ram) os
-read_options (n,_,ram)   (LoadRom filepath:os) = do rom <- read_file filepath
-                                                    read_options (n,rom,ram) os
-read_options (n,rom,_)   (LoadRam filepath:os) = do ram <- read_file filepath
-                                                    read_options (n,rom,ram) os
-read_options acc         (_:os)                = read_options acc os
 
 read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
 read_netlist_in net =
@@ -94,28 +89,51 @@ print_vars vars l = do
     where print_var var i =
             putStrLn $ i ++ ":" ++ string_of_bool_list (fromJust $ Map.lookup i var)
 
-main :: IO ()
-main = do (options, files) <- getArgs >>= get_options
-          let file_path = List.head files
-          -- TODO: check file has .net extension
-          let output_path = dropExtension file_path ++ "_sch" ++ ".net"
-          let opt_path = dropExtension file_path ++ "_opt" ++ ".net"
-          code <- readFile file_path
-          let net = read_netlist code
-          case verify net of
-            Left err -> putStrLn err
-            Right _  ->
-              case schedule net of
-                Left err      -> putStrLn err
-                Right net_sch -> do
-                  writeFile output_path $ show net_sch
-                  let Right net_opt = schedule $ optimize net
-                  writeFile opt_path $ show net_opt
-                  if List.elem PrintOnly options then
-                    return ()
-                  else do
-                    (n,rom,ram) <- read_options (1, Map.empty, Map.empty) options
-                    vars <- read_netlist_in net
-                    (ram', vars') <- simulate n rom ram vars net_opt
-                    print_vars vars' (netlist_out net)
+get_n [] = 1
+get_n ((NumberOfSteps n):_) = n
+get_n (_:os) = get_n os
 
+get_ram [] = return Map.empty
+get_ram ((LoadRam path):_) = read_file path
+get_ram (_:os) = get_rom os
+
+get_rom [] = return Map.empty
+get_rom ((LoadRom path):_) = read_file path
+get_rom (_:os) = get_rom os
+
+main :: IO ()
+main = do
+  (options, files) <- getArgs >>= get_options
+  if null files then
+    putStrLn "Error: no netlist file specified"
+  else do
+    let netlist_path = List.head files
+    case stripExtension ".net" netlist_path of
+      Nothing   ->
+        putStrLn "Bad extension, use .net"
+      Just name -> do
+        code <- readFile netlist_path
+        let netlist = read_netlist code
+        let sch_path = name ++ "_sch.net"
+        case schedule netlist of
+          Left err ->
+            putStrLn err
+          Right net_sch -> do
+            writeFile sch_path (show net_sch)
+            if List.elem PrintOnly options then
+              return ()
+            else do
+              let n = get_n options
+              rom <- get_rom options
+              ram <- get_ram options
+              if List.elem Optimize options then do
+                let opt_path = name ++ "_opt.net"
+                let Right net_opt = schedule $ optimize net_sch
+                writeFile opt_path (show net_opt)
+                vars <- read_netlist_in net_opt
+                let (ram', vars') = simulate n rom ram vars net_opt
+                print_vars vars' (netlist_out net_opt)
+              else do
+                vars <- read_netlist_in net_sch
+                let (ram', vars') = simulate n rom ram vars net_sch
+                print_vars vars' (netlist_out net_sch)

@@ -41,8 +41,6 @@ clear netmap =
          , netmap_sizes = Map.filterWithKey h $ netmap_sizes netmap
          }
 
-
-
 opt_const :: Netmap -> Equation -> Netmap
 opt_const netmap (id, exp) =
   let exps = netmap_eqs netmap in

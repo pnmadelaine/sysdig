@@ -16,7 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable simulator
-   main-is:             Main.hs
+   main-is:             Simulator.hs
    other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Scheduler
                       , Netlist.Show, Netlist.Simulator, Netlist.Typer
                       , Graph, Netlist.Opt
