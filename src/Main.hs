@@ -109,7 +109,7 @@ main = do (options, files) <- getArgs >>= get_options
                 Left err      -> putStrLn err
                 Right net_sch -> do
                   writeFile output_path $ show net_sch
-                  let net_opt = optimize net
+                  let Right net_opt = schedule $ optimize net
                   writeFile opt_path $ show net_opt
                   if List.elem PrintOnly options then
                     return ()
