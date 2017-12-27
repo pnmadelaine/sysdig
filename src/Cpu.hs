@@ -30,9 +30,8 @@ foo = do xs <- bits $ input "x" 4
          (_, zs) <- alu ctrl xs ys
          output "z" zs
 
-foo' = do new_reg "x" 2
-          output "x_out" (reg_out "x")
-          reg_in "x" $ conc [True] [True]
+foo' = do xs <- bits $ input "x" 4
+          output "y" xs
 
-netlist = build foo
+netlist = build_netlist foo
 
