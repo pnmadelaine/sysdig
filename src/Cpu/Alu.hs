@@ -57,34 +57,26 @@ alu ctrl x y = do
 
 --decides how immediate is extended
 extension_mode :: Instr -> Jazz Bit
-extension_mode instr = do
-  x <- (select 5 (instr_opcode instr)) \/ (neg (select 2 (instr_opcode instr)))
-  return x
-
+extension_mode instr =
+  select 5 (instr_opcode instr) \/ neg (select 2 (instr_opcode instr))
 
 isZero :: [Bit] -> Jazz Bit
-isZero [] = do
-  a <- bit True
-  return a
+isZero [] = bit True
 isZero (x:xs) = do
-  a <- isZero xs
-  b <- (neg x) /\ a
-  return b
+  neg x /\ isZero xs
 
 --decides which is input of the ALU between rt and immediate
-computing_mode :: Instr -> [Bit] -> [Bit] -> Jazz [Bit]
+computing_mode :: (Wr a, Wr b) => Instr -> a -> b -> Jazz Wire
 computing_mode instr value_rt immediate = do
   --every instruction that read rt have an opcode < 8
   y <- bits (slice 3 7 (instr_opcode instr))
   bit_ctrl <- isZero y
-  answ <- bits (mux bit_ctrl immediate value_rt) --sous reserve que mux 0 a b = a et mux 1 a b = b
-  return answ
+  mux bit_ctrl value_rt immediate
 
-
-alu_inputs :: Instr -> Jazz ([Bit],[Bit])
+alu_inputs :: Instr -> Jazz (Wire, Wire)
 alu_inputs instr = do
-  value_rs <- bits (read_reg (instr_rs instr))
-  value_rt <- bits (read_reg (instr_rt instr))
+  value_rs <- wire (read_reg (instr_rs instr))
+  value_rt <- wire (read_reg (instr_rt instr))
   signed <- extension_mode instr
   immediate <- extend signed 16 (instr_imm instr)
   input2 <- computing_mode instr value_rt immediate
