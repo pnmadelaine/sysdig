@@ -44,9 +44,12 @@ nalu ctrl (x:xs) (y:ys) c = do
   return (c_out, z:zs)
 
 
-alu :: (Bt a, Bt b) => Alu_control -> [a] -> [b] -> Jazz (Alu_flag, [Bit])
+alu :: (Wr a, Wr b) => Alu_control -> a -> b -> Jazz (Alu_flag, Wire)
 alu ctrl x y = do
-  (c_out, z) <- nalu ctrl x y (alu_carry_in ctrl)
+  xs <- bits x
+  ys <- bits y
+  (c_out, zs) <- nalu ctrl xs ys (alu_carry_in ctrl)
+  z <- wire zs
   d <- isZero z
   return ( Alu_flag { carry_out = c_out
                     , is_zero = d
@@ -70,7 +73,6 @@ nonZero w =
 
 isZero :: Wr a => a -> Jazz Bit
 isZero x = nonZero x >>= neg
-
 
 --decides which is input of the ALU between rt and immediate
 --imm_ctrl is true if ALU reads immediate value
@@ -122,5 +124,4 @@ get_ctrl_alu instr = do
                        , alu_invert_x = invert_x
                        , alu_invert_y = invert_y
                        }
-  
 
