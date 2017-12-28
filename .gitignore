@@ -22,7 +22,7 @@ cabal.project.local
 *.swp
 
 *.net
-optimizer
+
 simulator
 generator
-
+optimizer
