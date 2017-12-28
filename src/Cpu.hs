@@ -9,24 +9,20 @@ import Cpu.Alu
 import Cpu.Memory
 import Cpu.Branch
 
-f = Bit (ArgCst [False])
-t = Bit (ArgCst [True])
-
-ctrl = Alu_control { alu_enable_carry = t
-                   , alu_carry_in     = f
-                   , alu_force_or     = t
-                   , alu_invert_x     = f
-                   , alu_invert_y     = f
-                   }
+print_alu_ctrl ctrl = do
+  output "enable_carry" [alu_enable_carry ctrl]
+  output "carry_in" [alu_carry_in ctrl]
+  output "force_or" [alu_force_or ctrl]
+  output "invert_x" [alu_invert_x ctrl]
+  output "invert_y" [alu_invert_y ctrl]
 
 cpu = do init_registers
          instr <- decode fetch
          (input1, input2) <- alu_inputs instr
-         ctrl <- get_ctrl_alu instr
+         ctrl <- alu_control instr
          (flags, alu_output) <- alu ctrl input1 input2
          write_reg (List.replicate 5 False) (List.replicate 32 True)
          branch instr
-         output "pc_value" (reg_out "pc")
 
 netlist = build_netlist cpu
 

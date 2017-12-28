@@ -10,7 +10,7 @@ import Data.List as List
 data Alu_control = Alu_control { alu_enable_carry :: Bit
                                , alu_carry_in     :: Bit
                                , alu_force_or   :: Bit
-                               --, alu_disable_and   :: Bit On a toujours alu_enable_carry = alu_disable_and
+                              -- , alu_disable_and   :: Bit On a toujours alu_enable_carry = alu_disable_and
                                , alu_invert_x     :: Bit
                                , alu_invert_y     :: Bit
                                }
@@ -43,7 +43,6 @@ nalu ctrl (x:xs) (y:ys) c = do
   (c_out, zs) <- nalu ctrl xs ys c'
   return (c_out, z:zs)
 
-
 alu :: (Wr a, Wr b) => Alu_control -> a -> b -> Jazz (Alu_flag, Wire)
 alu ctrl x y = do
   xs <- bits x
@@ -62,11 +61,10 @@ extension_mode :: Instr -> Jazz Bit
 extension_mode instr =
   select 5 (instr_opcode instr) \/ neg (select 2 (instr_opcode instr))
 
-
 nonZero :: Wr a => a -> Jazz Bit
 nonZero w =
   let aux :: Bt a => [a] -> Jazz Bit
-      aux [] = bit True
+      aux [x] = bit x
       aux (x:xs) = x \/ nonZero xs
   in
   bits w >>= aux
@@ -79,49 +77,60 @@ isZero x = nonZero x >>= neg
 imm_ctrl :: Instr -> Jazz Bit
 imm_ctrl instr = do
   --every instruction that read rt have an opcode < 8
-  y <- bits (slice 3 7 (instr_opcode instr))
+  y <- slice 3 6 (instr_opcode instr)
   nonZero y
 
 alu_inputs :: Instr -> Jazz (Wire, Wire)
 alu_inputs instr = do
-  input1 <- read_reg (instr_rs instr)
-  value_rt <- read_reg (instr_rt instr)
-  signed <- extension_mode instr
+  input1    <- read_reg (instr_rs instr)
+  value_rt  <- read_reg (instr_rt instr)
+  signed    <- extension_mode instr
   immediate <- extend signed 16 (instr_imm instr)
-  input2 <- mux (imm_ctrl instr) immediate value_rt
+  input2    <- mux (imm_ctrl instr) immediate value_rt
   return (input1, input2)
 
+alu_control_from_wire :: Wr a => a -> Jazz Alu_control
+alu_control_from_wire w =
+  bits w >>= \l -> return $
+  Alu_control { alu_enable_carry = l !! 0
+              , alu_carry_in     = l !! 1
+              , alu_force_or     = l !! 2
+              , alu_invert_x     = l !! 3
+              , alu_invert_y     = l !! 4
+              }
 
-get_ctrl_alu :: Instr -> Jazz Alu_control
-get_ctrl_alu instr = do
+-- enable_carry carry_in force_or invert_x invert_y
+ctrl_add  = [ True,  False, False, False, False ]
+ctrl_sub  = [ True,  True,  False, False, True  ]
+ctrl_and  = [ False, False, False, False, True  ]
+ctrl_or   = [ False, False, True,  True,  False ]
+ctrl_nor  = [ False, False, False, True,  False ]
+ctrl_def  = [ False, False, False, False, False ]
 
-  let opcode = instr_opcode instr
-  let funct = instr_funct instr
+alu_control :: Instr -> Jazz Alu_control
+alu_control instr =
+  let aux_i 8 = ctrl_add  -- addi
+      aux_i 9 = ctrl_add  -- addiu
+      aux_i 12 = ctrl_and -- andi
+      aux_i 13 = ctrl_or  -- ori
+      --aux_i 14 = ... -- xori
+      aux_i _ = ctrl_def
+  in
+  let aux_r 32 = ctrl_add -- add
+      aux_r 33 = ctrl_add -- addu
+      aux_r 34 = ctrl_sub -- sub
+      aux_r 35 = ctrl_sub -- subu
+      aux_r 36 = ctrl_and -- and
+      aux_r 37 = ctrl_or -- or
+      --aux_i 38 = ... -- xor
+      aux_r 39 = ctrl_nor -- nor
+      aux_r _ = ctrl_def
+  in
+  let f i = wire $ if i >= 64 then aux_r (i-64) else aux_i i in
+  let opcode = instr_opcode instr in
+  let funct = instr_funct instr in
+  let op = conc (mux (nonZero opcode) opcode funct) [isZero opcode] in
+  multiplex f (mux (isZero opcode) funct opcode)
+  >>= alu_control_from_wire
 
-  disable_carry_I <- (select 2 opcode) /\ (select 3 opcode) -- c d
-  disable_carry_R <- (isZero opcode) /\ (select 2 funct) -- 0/24 0/25 0/27
-  enable_carry <- neg (disable_carry_I \/ disable_carry_R)
-
-  carry_in_I <- (neg (select 5 opcode)) /\ ((select 1 opcode) \/ ((select 2 opcode) /\ (neg (select 3 opcode)))) -- a b 4 5 (2 et 3 ignorés car ne nécessitent pas de calcul arith/logique)
-  -- pas de 2 devant /\ ({a,b,2,3} \/ ({4,5,c,d}\{c,d}))
-  carry_in_R <- (isZero opcode) /\ (select 2 funct) /\ (neg (select 3 funct)) -- 0/2a 0/2b 0/22 0/23
-  -- {_a, _b, _2, _3, _7} \ {_7} (0/02 ignoré car ne nécessite pas de calcul arith/logique)
-  carry_in <- carry_in_I \/ carry_in_R
-
-  force_or_R <- (isZero opcode) /\  (select 0 funct) /\ (select 2 funct) /\ (neg ((select 1 funct) \/ (select 3 funct))) -- 0/_5
-  force_or_I <- (select 3 opcode) /\ (select 2 opcode) /\ (select 0 opcode) -- d (f neg car pas d'arith/logique)
-  force_or <- force_or_R \/ force_or_I
-
-  invert_y_I <- (select 3 opcode) /\ (select 2 opcode) /\ (neg (select 0 opcode)) --c
-  invert_y_R <- (isZero opcode) /\  (select 2 funct) /\ (neg ((select 1 funct) \/ (select 3 funct) \/ (select 0 funct))) -- 0/_4
-  invert_y <- invert_y_I \/ invert_y_R \/ carry_in --test d'avant que pour et
-
-  invert_x <- neg (enable_carry \/ invert_y)
-
-  return $ Alu_control { alu_enable_carry = enable_carry
-                       , alu_carry_in = carry_in
-                       , alu_force_or = force_or
-                       , alu_invert_x = invert_x
-                       , alu_invert_y = invert_y
-                       }
 

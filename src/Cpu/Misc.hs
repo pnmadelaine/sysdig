@@ -53,19 +53,6 @@ extend s n xs = do
               (List.genericReplicate n True)
               (List.genericReplicate n False)
 
--- decodes the instruction
-decode :: Wr a => a -> Jazz Instr
-decode w = do
-  instr <- bits w
-  return $ Instr { instr_opcode = List.drop 6 instr
-                 , instr_rs = List.take 5 (List.drop 11 instr)
-                 , instr_rd = List.take 5 (List.drop 21 instr)
-                 , instr_rt = List.take 5 (List.drop 16 instr)
-                 , instr_shamt = List.take 5 (List.drop 26 instr)
-                 , instr_funct = List.take 6 instr
-                 , instr_imm = List.take 16 instr
-                 , instr_addr = List.take 26 instr
-                 }
 
 -- get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
