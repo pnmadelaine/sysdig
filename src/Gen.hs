@@ -7,6 +7,6 @@ import qualified Cpu
 
 netlist = Cpu.netlist
 
-main :: IO ()
+main :: IO ()
 main = writeFile "cpu.net" $ show netlist
 
