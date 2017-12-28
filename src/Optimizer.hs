@@ -9,12 +9,16 @@ import System.FilePath
 import Netlist.Opt
 import Netlist.Show
 import Netlist.Parser
+import Netlist.Typer
 
 handle_netlist name = do
   code <- readFile (name ++ ".net")
   let netlist = read_netlist code
   let net_opt = optimize netlist
   writeFile (name ++ "_opt.net") (show net_opt)
+  case verify net_opt of
+    Left err -> putStrLn err
+    Right _  -> putStrLn "ok"
 
 main :: IO ()
 main = do
