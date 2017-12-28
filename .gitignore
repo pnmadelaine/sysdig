@@ -20,3 +20,8 @@ cabal.project.local
 .HTF/
 
 *.swp
+
+*.net
+simulator
+generator
+optimizer

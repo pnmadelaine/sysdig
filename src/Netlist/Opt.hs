@@ -107,7 +107,7 @@ apply_opt netlist opt =
   let netmap1 = List.foldl opt netmap0 (netlist_eq net_sch) in
   netlist_from_netmap (clear netmap1)
 
-optimize :: Netlist -> Netlist
+optimize :: Netlist -> Netlist -- TODO: Netlist -> Either String Netlist
 optimize netlist =
   let res = List.foldl apply_opt netlist [opt_tauto, opt_tauto_1] in
   case verify res of
