@@ -97,7 +97,7 @@ new_reg :: Ident -> Integer -> Jazz ()
 new_reg id n = do s <- get
                   let s' = Env { env_ids   = env_ids s
                                , env_in    = env_in s
-                               , env_out   = Set.insert id $ env_out s
+                               , env_out   = env_out s
                                , env_sizes = Map.insert id n $ env_sizes s
                                }
                   put s'
