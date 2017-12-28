@@ -14,8 +14,7 @@ t = Bit (ArgCst [True])
 
 ctrl = Alu_control { alu_enable_carry = f
                    , alu_carry_in     = f
-                   , alu_enable_xor   = t
-                   , alu_enable_and   = t
+                   , alu_force_or     = t
                    , alu_invert_x     = f
                    , alu_invert_y     = f
                    }
