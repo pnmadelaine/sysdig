@@ -38,8 +38,8 @@ clear netmap =
          , netmap_sizes = Map.filterWithKey (\i n -> filter i) $ netmap_sizes netmap
          }
 
-opt_tauto :: Netmap -> Equation -> Netmap
-opt_tauto netmap (id, exp) =
+opt_tauto_0 :: Netmap -> Equation -> Netmap
+opt_tauto_0 netmap (id, exp) =
   let exps = netmap_eqs netmap in
   let aux :: Argument -> Argument
       aux (ArgVar id) = case Map.lookup id exps of
@@ -89,8 +89,10 @@ opt_tauto_1 netmap (id, Econcat (ArgVar id1) (ArgVar id2)) =
       else
           add_eq (id, Econcat (ArgVar id1) (ArgVar id2)) netmap
     _ -> add_eq (id, Econcat (ArgVar id1) (ArgVar id2)) netmap
-
 opt_tauto_1 netmap eq = add_eq eq netmap
+
+opt_id :: Netmap -> Equation -> Netmap
+opt_id netmap eq = add_eq eq netmap
 
 apply_opt :: Netlist -> (Netmap -> Equation -> Netmap) -> Netlist
 apply_opt netlist opt =
@@ -99,18 +101,12 @@ apply_opt netlist opt =
                        , netmap_ids   = Map.empty
                        , netmap_in    = Set.fromList (netlist_in net_sch)
                        , netmap_out   = Set.fromList (netlist_out net_sch)
-                       , netmap_sizes =
-                           Map.fromList $ List.map
-                           (\id -> (id, (fromJust $ List.lookup id (netlist_var net_sch))))
-                           (netlist_out net_sch ++ netlist_in net_sch)
+                       , netmap_sizes = Map.fromList (netlist_var net_sch)
                        } in
   let netmap1 = List.foldl opt netmap0 (netlist_eq net_sch) in
   netlist_from_netmap (clear netmap1)
 
 optimize :: Netlist -> Netlist -- TODO: Netlist -> Either String Netlist
 optimize netlist =
-  let res = List.foldl apply_opt netlist [opt_tauto, opt_tauto_1] in
-  case verify res of
-    Left err -> error "optimization failed"
-    Right m -> res
+  List.foldl apply_opt netlist [opt_tauto_0, opt_tauto_1]
 
