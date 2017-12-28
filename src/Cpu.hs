@@ -22,17 +22,11 @@ ctrl = Alu_control { alu_enable_carry = t
 cpu = do init_registers
          instr <- decode fetch
          (input1, input2) <- alu_inputs instr
-         write_reg (List.replicate 5 False) (List.replicate 32 True) -- 
+         ctrl <- get_ctrl_alu instr
+         (flags, alu_output) <- alu ctrl input1 input2
+         write_reg (List.replicate 5 False) (List.replicate 32 True)
          branch instr
          output "pc_value" (reg_out "pc")
 
-foo = do xs <- bits $ input "x" 4
-         ys <- bits $ input "y" 4
-         (_, zs) <- alu ctrl xs ys
-         output "z" zs
-
-foo' = do xs <- bits $ input "x" 4
-          output "y" xs
-
-netlist = build_netlist foo
+netlist = build_netlist cpu
 
