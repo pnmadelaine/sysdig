@@ -22,8 +22,10 @@ ctrl = Alu_control { alu_enable_carry = f
 
 cpu = do init_registers
          instr <- decode fetch
-         write_reg (List.replicate 5 False) (List.replicate 32 True)
+         (input1, input2) <- alu_inputs instr
+         write_reg (List.replicate 5 False) (List.replicate 32 True) -- 
          branch instr
+         output "pc_value" (reg_out "pc")
 
 netlist = build cpu
 
