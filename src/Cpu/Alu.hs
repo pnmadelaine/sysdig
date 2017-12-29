@@ -9,8 +9,8 @@ import Data.List as List
 
 data Alu_control = Alu_control { alu_enable_carry :: Bit
                                , alu_carry_in     :: Bit
-                               , alu_force_or   :: Bit
-                              -- , alu_disable_and   :: Bit On a toujours alu_enable_carry = alu_disable_and
+                               , alu_force_or     :: Bit
+                               , alu_disable_and  :: Bit 
                                , alu_invert_x     :: Bit
                                , alu_invert_y     :: Bit
                                }
@@ -25,13 +25,14 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- And -> alu_invert_y
 -- Nor -> alu_invert_x
 -- Or  -> alu_force_or, alu_invert_x
+-- Xor -> alu_
 
 fullalu :: (Bt a, Bt b, Bt c) => Alu_control -> a -> b -> c -> Jazz (Bit, Bit)
 fullalu ctrl a b c = do
   a1 <- a <> (alu_invert_x ctrl)
   b1 <- b <> (alu_invert_y ctrl)
   r <- ((a1 /\ b1) \/ ((a1 \/ b1) /\ c)) /\ (alu_enable_carry ctrl)
-  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_enable_carry ctrl)) ) <> (alu_force_or ctrl)
+  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_disable_and ctrl)) ) <> (alu_force_or ctrl)
   return (r, s)
 
 nalu :: (Bt a, Bt b, Bt c) => Alu_control -> [a] -> [b] -> c -> Jazz (Bit, [Bit])
@@ -95,17 +96,19 @@ alu_control_from_wire w =
   Alu_control { alu_enable_carry = l !! 0
               , alu_carry_in     = l !! 1
               , alu_force_or     = l !! 2
-              , alu_invert_x     = l !! 3
-              , alu_invert_y     = l !! 4
+              , alu_disable_and  = l !! 3
+              , alu_invert_x     = l !! 4
+              , alu_invert_y     = l !! 5
               }
 
 -- enable_carry carry_in force_or invert_x invert_y
-ctrl_add  = [ True,  False, False, False, False ]
-ctrl_sub  = [ True,  True,  False, False, True  ]
-ctrl_and  = [ False, False, False, False, True  ]
-ctrl_or   = [ False, False, True,  True,  False ]
-ctrl_nor  = [ False, False, False, True,  False ]
-ctrl_def  = [ False, False, False, False, False ]
+ctrl_add  = [ True,  False, False, True,  False, False ]
+ctrl_sub  = [ True,  True,  False, True,  False, True  ]
+ctrl_and  = [ False, False, False, False, False, True  ]
+ctrl_or   = [ False, False, True,  False, True,  False ]
+ctrl_nor  = [ False, False, False, False, True,  False ]
+ctrl_def  = [ False, False, False, False, False, False ]
+ctrl_xor  = [ False, False, False, True,  False, False ]
 
 alu_control :: Instr -> Jazz Alu_control
 alu_control instr =
@@ -113,7 +116,7 @@ alu_control instr =
       aux_i 9 = ctrl_add  -- addiu
       aux_i 12 = ctrl_and -- andi
       aux_i 13 = ctrl_or  -- ori
-      --aux_i 14 = ... -- xori
+      aux_i 14 = ctrl_xor -- xori
       aux_i _ = ctrl_def
   in
   let aux_r 32 = ctrl_add -- add
@@ -122,7 +125,7 @@ alu_control instr =
       aux_r 35 = ctrl_sub -- subu
       aux_r 36 = ctrl_and -- and
       aux_r 37 = ctrl_or -- or
-      --aux_i 38 = ... -- xor
+      aux_r 38 = ctrl_xor -- xor
       aux_r 39 = ctrl_nor -- nor
       aux_r _ = ctrl_def
   in
