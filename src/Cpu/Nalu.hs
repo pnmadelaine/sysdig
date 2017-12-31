@@ -9,8 +9,8 @@ import Cpu.Control
 
 data Nalu_control = Nalu_control { alu_enable_carry :: Bit
                                  , alu_carry_in     :: Bit
-                                 , alu_force_or   :: Bit
-                              --  alu_disable_and   :: Bit On a toujours alu_enable_carry = alu_disable_and
+                                 , alu_force_or     :: Bit
+                                 , alu_disable_and  :: Bit
                                  , alu_invert_x     :: Bit
                                  , alu_invert_y     :: Bit
                                  }
@@ -21,17 +21,19 @@ nalu_control_from_wire w =
   Nalu_control { alu_enable_carry = l !! 0
                , alu_carry_in     = l !! 1
                , alu_force_or     = l !! 2
-               , alu_invert_x     = l !! 3
-               , alu_invert_y     = l !! 4
+               , alu_disable_and  = l !! 3
+               , alu_invert_x     = l !! 4
+               , alu_invert_y     = l !! 5
                }
 
 -- enable_carry carry_in force_or invert_x invert_y
-ctrl_add  = wire_of_bool_list [ True,  False, False, False, False ]
-ctrl_sub  = wire_of_bool_list [ True,  True,  False, False, True  ]
-ctrl_and  = wire_of_bool_list [ False, False, False, False, True  ]
-ctrl_or   = wire_of_bool_list [ False, False, True,  True,  False ]
-ctrl_nor  = wire_of_bool_list [ False, False, False, True,  False ]
-ctrl_def  = wire_of_bool_list [ False, False, False, False, False ]
+ctrl_add  = wire_of_bool_list [ True,  False, False, True,  False, False ]
+ctrl_sub  = wire_of_bool_list [ True,  True,  False, True,  False, True  ]
+ctrl_and  = wire_of_bool_list [ False, False, False, False, False, True  ]
+ctrl_or   = wire_of_bool_list [ False, False, True,  False, True,  False ]
+ctrl_nor  = wire_of_bool_list [ False, False, False, False, True,  False ]
+ctrl_def  = wire_of_bool_list [ False, False, False, False, False, False ]
+ctrl_xor  = wire_of_bool_list [ False, False, False, True,  False, False ] -- TODO: add the opcode
 
 ctrl_mux :: Jazz Opcode_mux
 ctrl_mux = do x <- (opcode_def ctrl_def)
@@ -62,7 +64,7 @@ fullalu ctrl a b c = do
   a1 <- a <> (alu_invert_x ctrl)
   b1 <- b <> (alu_invert_y ctrl)
   r <- ((a1 /\ b1) \/ ((a1 \/ b1) /\ c)) /\ (alu_enable_carry ctrl)
-  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_enable_carry ctrl)) ) <> (alu_force_or ctrl)
+  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_disable_and ctrl)) ) <> (alu_force_or ctrl)
   return (r, s)
 
 nalu :: (Bt a, Bt b) => Nalu_control -> [a] -> [b] -> Jazz (Bit, [Bit])

@@ -10,7 +10,6 @@ import Cpu.Nalu
 import Control.Monad (mapM, mapM_)
 import Data.List as List
 
-
 data Alu_flag = Alu_flag { carry_out :: Bit
                          , is_zero   :: Bit
                          }
@@ -21,6 +20,7 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- And -> alu_invert_y
 -- Nor -> alu_invert_x
 -- Or  -> alu_force_or, alu_invert_x
+-- Xor -> alu_
 
 alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, Wire)
 alu instr x y = do
