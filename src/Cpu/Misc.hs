@@ -20,10 +20,10 @@ multiplex :: Wr a => (Integer -> Jazz Wire) -> a -> Jazz Wire
 multiplex f x =
   let aux :: Bt a => Integer -> Integer -> [a] -> Jazz Wire
       aux _ j [] = f j
-      aux i j (x:xs) =
-        mux x
-          (aux (2*i) (j+i) xs)
-          (aux (2*i) j     xs)
+      aux i j (x:xs) = do
+        a <- aux (2*i) (j+i) xs
+        b <- aux (2*i) j     xs
+        mux x a b
   in
   bits x >>= \l -> aux 1 0 l
 

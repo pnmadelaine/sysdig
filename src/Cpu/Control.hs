@@ -5,98 +5,100 @@ import Netlist.Jazz
 import Cpu.Misc
 import Cpu.Instr
 
-data Opcode_mux = Opcode_mux { op_j       :: Wire
-                             , op_jal     :: Wire
-                             , op_beq     :: Wire
-                             , op_bne     :: Wire
-                             , op_addi    :: Wire
-                             , op_addiu   :: Wire
-                             , op_slti    :: Wire
-                             , op_sltiu   :: Wire
-                             , op_andi    :: Wire
-                             , op_ori     :: Wire
-                             , op_lui     :: Wire
-                             , op_lw      :: Wire
-                             , op_lbu     :: Wire
-                             , op_lhu     :: Wire
-                             , op_sb      :: Wire
-                             , op_sh      :: Wire
-                             , op_sw      :: Wire
-                             , op_ll      :: Wire
-                             , op_sc      :: Wire
+import Debug.Trace
 
-                             , op_sll     :: Wire
-                             , op_srl     :: Wire
-                             , op_sra     :: Wire
-                             , op_jr      :: Wire
-                             , op_mfhi    :: Wire
-                             , op_mflo    :: Wire
-                             , op_mult    :: Wire
-                             , op_multu   :: Wire
-                             , op_div     :: Wire
-                             , op_divu    :: Wire
-                             , op_add     :: Wire
-                             , op_addu    :: Wire
-                             , op_sub     :: Wire
-                             , op_subu    :: Wire
-                             , op_and     :: Wire
-                             , op_or      :: Wire
-                             , op_nor     :: Wire
-                             , op_slt     :: Wire
-                             , op_sltu    :: Wire
+data Opcode_mux = Opcode_mux { op_j       :: Jazz Wire
+                             , op_jal     :: Jazz Wire
+                             , op_beq     :: Jazz Wire
+                             , op_bne     :: Jazz Wire
+                             , op_addi    :: Jazz Wire
+                             , op_addiu   :: Jazz Wire
+                             , op_slti    :: Jazz Wire
+                             , op_sltiu   :: Jazz Wire
+                             , op_andi    :: Jazz Wire
+                             , op_ori     :: Jazz Wire
+                             , op_lui     :: Jazz Wire
+                             , op_lw      :: Jazz Wire
+                             , op_lbu     :: Jazz Wire
+                             , op_lhu     :: Jazz Wire
+                             , op_sb      :: Jazz Wire
+                             , op_sh      :: Jazz Wire
+                             , op_sw      :: Jazz Wire
+                             , op_ll      :: Jazz Wire
+                             , op_sc      :: Jazz Wire
 
-                             , op_nop     :: Wire
+                             , op_sll     :: Jazz Wire
+                             , op_srl     :: Jazz Wire
+                             , op_sra     :: Jazz Wire
+                             , op_jr      :: Jazz Wire
+                             , op_mfhi    :: Jazz Wire
+                             , op_mflo    :: Jazz Wire
+                             , op_mult    :: Jazz Wire
+                             , op_multu   :: Jazz Wire
+                             , op_div     :: Jazz Wire
+                             , op_divu    :: Jazz Wire
+                             , op_add     :: Jazz Wire
+                             , op_addu    :: Jazz Wire
+                             , op_sub     :: Jazz Wire
+                             , op_subu    :: Jazz Wire
+                             , op_and     :: Jazz Wire
+                             , op_or      :: Jazz Wire
+                             , op_nor     :: Jazz Wire
+                             , op_slt     :: Jazz Wire
+                             , op_sltu    :: Jazz Wire
+
+                             , op_nop     :: Jazz Wire
                              }
 
-opcode_def :: Wr a => a -> Jazz Opcode_mux
-opcode_def x = wire x >>= \ v -> return $
-               Opcode_mux { op_j       = v
-                          , op_jal     = v
-                          , op_beq     = v
-                          , op_bne     = v
-                          , op_addi    = v
-                          , op_addiu   = v
-                          , op_slti    = v
-                          , op_sltiu   = v
-                          , op_andi    = v
-                          , op_ori     = v
-                          , op_lui     = v
-                          , op_lw      = v
-                          , op_lbu     = v
-                          , op_lhu     = v
-                          , op_sb      = v
-                          , op_sh      = v
-                          , op_sw      = v
-                          , op_ll      = v
-                          , op_sc      = v
+{-
+               Opcode_mux { op_j       =
+                          , op_jal     =
+                          , op_beq     =
+                          , op_bne     =
+                          , op_addi    =
+                          , op_addiu   =
+                          , op_slti    =
+                          , op_sltiu   =
+                          , op_andi    =
+                          , op_ori     =
+                          , op_lui     =
+                          , op_lw      =
+                          , op_lbu     =
+                          , op_lhu     =
+                          , op_sb      =
+                          , op_sh      =
+                          , op_sw      =
+                          , op_ll      =
+                          , op_sc      =
 
-                          , op_sll     = v
-                          , op_srl     = v
-                          , op_sra     = v
-                          , op_jr      = v
-                          , op_mfhi    = v
-                          , op_mflo    = v
-                          , op_mult    = v
-                          , op_multu   = v
-                          , op_div     = v
-                          , op_divu    = v
-                          , op_add     = v
-                          , op_addu    = v
-                          , op_sub     = v
-                          , op_subu    = v
-                          , op_and     = v
-                          , op_or      = v
-                          , op_nor     = v
-                          , op_slt     = v
-                          , op_sltu    = v
+                          , op_sll     =
+                          , op_srl     =
+                          , op_sra     =
+                          , op_jr      =
+                          , op_mfhi    =
+                          , op_mflo    =
+                          , op_mult    =
+                          , op_multu   =
+                          , op_div     =
+                          , op_divu    =
+                          , op_add     =
+                          , op_addu    =
+                          , op_sub     =
+                          , op_subu    =
+                          , op_and     =
+                          , op_or      =
+                          , op_nor     =
+                          , op_slt     =
+                          , op_sltu    =
 
-                          , op_nop     = v
+                          , op_nop     =
                           }
+                          -}
+
 
 opcode_mux :: Instr -> Opcode_mux -> Jazz Wire
 opcode_mux instr op =
-  let aux_i :: Integer -> Opcode_mux -> Wire
-      aux_i 2 = op_j
+  let aux_i 2 = op_j
       aux_i 3 = op_jal
       aux_i 4 = op_beq
       aux_i 5 = op_bne
@@ -117,8 +119,7 @@ opcode_mux instr op =
       aux_i 56 = op_sc
       aux_i _ = op_nop
   in
-  let aux_r :: Integer -> Opcode_mux -> Wire
-      aux_r 0 = op_sll
+  let aux_r 0 = op_sll
       aux_r 2 = op_srl
       aux_r 3 = op_sra
       aux_r 8 = op_jr
@@ -139,11 +140,11 @@ opcode_mux instr op =
       aux_r 43 = op_sltu
       aux_r _ = op_nop
   in
-  let f i = if i >= 64 then wire $ aux_r (i-64) op
-                       else wire $ aux_i i op
+  let f i = if i >= 64 then aux_r (i-64) op
+                       else aux_i i op
   in
   let opcode = instr_opcode instr in
   let funct = instr_funct instr in
-  let op = conc (mux (nonZero opcode) opcode funct) [isZero opcode] in
-  multiplex f (mux (isZero opcode) funct opcode)
+  do op <- conc (mux (nonZero opcode) opcode funct) [isZero opcode]
+     multiplex f op
 
