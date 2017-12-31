@@ -1,10 +1,12 @@
 module Cpu.Memory where
 
-import Netlist.Jazz
-import Cpu.Misc
-
 import Control.Monad (mapM, mapM_)
 import Data.List as List
+
+import Netlist.Jazz
+
+import Cpu.Misc
+import Cpu.Instr
 
 registers_names :: [String]
 registers_names = ["zero",

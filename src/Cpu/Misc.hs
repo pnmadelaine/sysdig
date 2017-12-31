@@ -5,15 +5,16 @@ import Netlist.Jazz
 import Control.Monad (mapM, mapM_)
 import Data.List as List
 
-data Instr = Instr { instr_opcode :: [Bit]
-                   , instr_rs     :: [Bit]
-                   , instr_rd     :: [Bit]
-                   , instr_rt     :: [Bit]
-                   , instr_shamt  :: [Bit]
-                   , instr_funct  :: [Bit]
-                   , instr_imm    :: [Bit]
-                   , instr_addr   :: [Bit]
-                   }
+nonZero :: Wr a => a -> Jazz Bit
+nonZero w =
+  let aux :: Bt a => [a] -> Jazz Bit
+      aux [x] = bit x
+      aux (x:xs) = x \/ nonZero xs
+  in
+  bits w >>= aux
+
+isZero :: Wr a => a -> Jazz Bit
+isZero x = nonZero x >>= neg
 
 multiplex :: Wr a => (Integer -> Jazz Wire) -> a -> Jazz Wire
 multiplex f x =
@@ -26,23 +27,25 @@ multiplex f x =
   in
   bits x >>= \l -> aux 1 0 l
 
--- direction number_of_shifts value
-shift :: (Bt a, Bt b, Bt c) => a -> [b] -> [c] -> Jazz [Bit]
-shift a ws xs =
-  let aux :: (Bt a, Bt b) => Integer -> [a] -> [b] -> Jazz [Bit]
-      aux _ [] xs = mapM bit xs
-      aux i (w:ws) xs = do
-        xs <- aux (2*i) ws xs
-        y1 <- conc
-                (List.genericReplicate i False)
-                (List.genericTake (List.genericLength xs - i) xs)
-        y2 <- conc
-                (List.genericDrop i xs)
-                (List.genericReplicate i False)
-        ys <- mux a y1 y2
-        bits $ mux w ys xs
+-- direction = 1 for left shift
+shift :: (Bt a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz Wire
+shift dir arith sh x =
+  let aux :: Integer -> Wire -> [Bit] -> Jazz Wire
+      aux _ w [] = return w
+      aux i w (x:xs) = do
+        let t = List.genericReplicate i True
+        let f = List.genericReplicate i False
+        w' <- aux (2*i) w xs
+        n  <- wire_size w
+        y1 <- conc f (slice 0 (n-i) w)
+        y2 <- conc (slice i n w) (mux (select (n-1) w /\ arith) t f)
+        w'' <- mux dir y1 y2
+        mux x w'' w'
   in
-  aux 1 ws xs
+  do w <- wire x
+     xs <- bits sh
+     aux 1 w xs
+
 
 -- signed and unsigned extension
 -- signed n value

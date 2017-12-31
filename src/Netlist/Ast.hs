@@ -62,28 +62,20 @@ apply_op op a b =
 
 get_idents :: Expression -> [Ident]
 get_idents expr =
-  let bar = case expr of
-            Emux _ _ (ArgVar i) -> [i]
-            _                   -> []
-  in
-  let foo = case expr of
-            Ebinop _ _ (ArgVar i) -> i:bar
-            Emux _ (ArgVar i) _   -> i:bar
-            Econcat _ (ArgVar i)  -> i:bar
-            _                     -> bar
+  let aux (ArgVar id) = [id]
+      aux (ArgCst _) = []
   in
   case expr of
-  Earg (ArgVar i)           -> i:foo
-  Enot (ArgVar i)           -> i:foo
-  Erom (ArgVar i)           -> i:foo
-  Econcat (ArgVar i) _      -> i:foo
-  Eslice _ _ (ArgVar i)     -> i:foo
-  Eselect _(ArgVar i)       -> i:foo
-  Ebinop _ (ArgVar i) _     -> i:foo
-  Emux (ArgVar i) _ _       -> i:foo
-  Eram (ArgVar i) _ _ _     -> i:foo
-  _                         -> foo
-
+    Earg a        -> aux a
+    Ereg id       -> []
+    Enot a        -> aux a
+    Ebinop op a b -> aux a ++ aux b
+    Emux a b c    -> aux a ++ aux b ++ aux c
+    Erom a        -> aux a
+    Eram a b c d  -> aux a
+    Econcat a b   -> aux a ++ aux b
+    Eslice i j a  -> aux a
+    Eselect i a   -> aux a
 
 -- NETMAP
 
