@@ -2,6 +2,7 @@ module Main where
 
 import qualified Data.List as List
 
+import Netlist.Ast
 import Netlist.Jazz
 import Cpu.Instr
 import Cpu.Misc
@@ -13,12 +14,14 @@ cpu :: Jazz ()
 cpu = do init_registers
          instr <- decode fetch
          (input1, input2) <- nalu_inputs instr
-         (_, z) <- alu instr (32 :: Integer, 0 :: Integer) (32 :: Integer, 0 :: Integer)
+         (_, z) <- alu instr input1 input2
          output "z" z
+         write_reg (output_reg instr) z
          branch instr
 
 netlist = build_netlist cpu
+netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names ++ ["pc"] } 
 
 main :: IO ()
-main = writeFile "cpu.net" $ show netlist
+main = writeFile "cpu.net" $ show netlist'
 

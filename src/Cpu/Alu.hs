@@ -22,13 +22,12 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- Or  -> alu_force_or, alu_invert_x
 -- Xor -> alu_
 
-alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, Wire)
+alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, [Bit])
 alu instr x y = do
   xs <- bits x
   ys <- bits y
   ctrl <- nalu_control instr
-  (c_out, zs) <- nalu ctrl xs ys
-  z <- wire zs
+  (c_out, z) <- nalu ctrl xs ys
   zero <- isZero z
   return ( Alu_flag { carry_out = c_out
                     , is_zero = zero
@@ -57,9 +56,9 @@ nalu_inputs instr = do
   rd <- read_reg (instr_rd instr)
   rt <- read_reg (instr_rt instr)
   pc <- reg_out "pc"
-  signed    <- extension_mode instr
+  signed <- extension_mode instr
   imm <- extend signed 16 (instr_imm instr)
-  let zero = wire (5 :: Integer, 0 :: Integer)
+  let zero = wire (32 :: Integer, 0 :: Integer)
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
                             , op_beq     = conc rs rt
@@ -103,8 +102,8 @@ nalu_inputs instr = do
                             , op_nop     = conc zero zero
                             }
   inputs <- opcode_mux instr ctrl_mux
-  input1 <- read_reg $ slice 0 5 inputs
-  input2 <- read_reg $ slice 5 10 inputs
+  input1 <- slice 0 32 inputs
+  input2 <- slice 32 64 inputs
 
   return (input1, input2)
 

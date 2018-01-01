@@ -49,10 +49,11 @@ shift dir arith sh x =
 
 -- signed and unsigned extension
 -- signed n value
-extend :: (Bt a, Bt b) => a -> Integer -> [b] -> Jazz [Bit]
-extend s n xs = do
+extend :: (Bt a, Wr b) => a -> Integer -> b -> Jazz Wire
+extend s n x = do
+  xs <- bits x
   a <- s /\ (List.head $ List.reverse xs)
-  bits $ conc xs $ mux a
+  conc xs $ mux a
               (List.genericReplicate n True)
               (List.genericReplicate n False)
 

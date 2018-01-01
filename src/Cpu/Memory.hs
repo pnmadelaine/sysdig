@@ -7,6 +7,7 @@ import Netlist.Jazz
 
 import Cpu.Misc
 import Cpu.Instr
+import Cpu.Control
 
 registers_names :: [String]
 registers_names = ["zero",
@@ -45,4 +46,53 @@ write_reg addr xs =
                           else reg_out (nth i registers_names)
   in
   mapM_ (\i -> reg_in (nth i registers_names) (multiplex (g i xs) addr)) [1..31]
+
+output_reg :: Instr -> Jazz Wire
+output_reg instr = do
+  let rt = wire $ instr_rt instr
+  let rd = wire $ instr_rd instr
+  let zero = wire (5 :: Integer, 0 :: Integer)
+  let ctrl_mux = Opcode_mux { op_j       = zero
+                            , op_jal     = wire (5 :: Integer, 31 :: Integer)
+                            , op_beq     = zero
+                            , op_bne     = zero
+                            , op_addi    = rt
+                            , op_addiu   = rt
+                            , op_slti    = rt
+                            , op_sltiu   = rt
+                            , op_andi    = rt
+                            , op_ori     = rt
+                            , op_lui     = rt
+                            , op_lw      = rt
+                            , op_lbu     = rt
+                            , op_lhu     = rt
+                            , op_sb      = zero
+                            , op_sh      = zero
+                            , op_sw      = zero
+                            , op_ll      = rt
+                            , op_sc      = rt
+
+                            , op_sll     = rd
+                            , op_srl     = rd
+                            , op_sra     = rd
+                            , op_jr      = rt
+                            , op_mfhi    = zero
+                            , op_mflo    = zero
+                            , op_mult    = zero
+                            , op_multu   = zero
+                            , op_div     = zero
+                            , op_divu    = zero
+                            , op_add     = rd
+                            , op_addu    = rd
+                            , op_sub     = rd
+                            , op_subu    = rd
+                            , op_and     = rd
+                            , op_or      = rd
+                            , op_nor     = rd
+                            , op_slt     = rd
+                            , op_sltu    = rd
+
+                            , op_nop     = zero
+                            }
+  opcode_mux instr ctrl_mux
 
