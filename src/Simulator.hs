@@ -109,9 +109,12 @@ run_simulation options net_sch = do
 handle_netlist options name = do
   code <- readFile (name ++ ".net")
   let netlist = read_netlist code
-  case schedule netlist of
-    Left err      -> putStrLn err
-    Right net_sch -> run_simulation options net_sch
+  case verify netlist of
+    Left err -> putStrLn err
+    Right _ ->
+      case schedule netlist of
+        Left err      -> putStrLn err
+        Right net_sch -> run_simulation options net_sch
 
 main :: IO ()
 main = do
