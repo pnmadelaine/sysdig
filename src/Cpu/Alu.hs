@@ -6,6 +6,7 @@ import Cpu.Misc
 import Cpu.Memory
 import Cpu.Control
 import Cpu.Nalu
+import Cpu.Adder
 
 import Control.Monad (mapM, mapM_)
 import Data.List as List
@@ -22,6 +23,17 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- Or  -> alu_force_or, alu_invert_x
 -- Xor -> alu_
 
+read_ram :: Wr a => a -> Jazz Wire
+read_ram ra0 = do
+  (_,ra1) <- adder ra0 (32 :: Integer, 1 :: Integer) False
+  (_,ra2) <- adder ra0 (32 :: Integer, 2 :: Integer) False
+  (_,ra3) <- adder ra0 (32 :: Integer, 3 :: Integer) False
+  w0 <- ram ra0 False (32 :: Integer, 0 :: Integer) (8 :: Integer, 0 :: Integer)
+  w1 <- ram ra1 False (32 :: Integer, 0 :: Integer) (8 :: Integer, 0 :: Integer)
+  w2 <- ram ra2 False (32 :: Integer, 0 :: Integer) (8 :: Integer, 0 :: Integer)
+  w3 <- ram ra3 False (32 :: Integer, 0 :: Integer) (8 :: Integer, 0 :: Integer)
+  conc w0 $ conc w1 $ conc w2 w3
+
 alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, Wire)
 alu instr x y = do
   xs <- bits x
@@ -31,49 +43,50 @@ alu instr x y = do
   zero <- wire (32 :: Integer, 0 :: Integer)
   let shamt = instr_shamt instr
   let imm = instr_imm instr
-  let ctrl_mux = Opcode_mux { op_j       = wire zero
-                            , op_jal     = wire nalu
-                            , op_beq     = wire nalu
-                            , op_bne     = wire nalu
-                            , op_addi    = wire nalu
-                            , op_addiu   = wire nalu
-                            , op_slti    = wire zero
-                            , op_sltiu   = wire zero
-                            , op_andi    = wire nalu
-                            , op_ori     = wire nalu
-                            , op_lui     = conc (List.replicate 16 False) imm
-                            , op_lw      = wire zero
-                            , op_lbu     = wire zero
-                            , op_lhu     = wire zero
-                            , op_sb      = wire zero
-                            , op_sh      = wire zero
-                            , op_sw      = wire zero
-                            , op_ll      = wire zero
-                            , op_sc      = wire zero
+  ram_out <- read_ram nalu
+  let res_mux = Opcode_mux { op_j       = wire zero
+                           , op_jal     = wire nalu
+                           , op_beq     = wire nalu
+                           , op_bne     = wire nalu
+                           , op_addi    = wire nalu
+                           , op_addiu   = wire nalu
+                           , op_slti    = wire zero
+                           , op_sltiu   = wire zero
+                           , op_andi    = wire nalu
+                           , op_ori     = wire nalu
+                           , op_lui     = conc (List.replicate 16 False) imm
+                           , op_lw      = wire ram_out
+                           , op_lbu     = conc (slice 0 8 ram_out) (24 :: Integer, 0 :: Integer)
+                           , op_lhu     = conc (slice 0 16 ram_out) (16 :: Integer, 0 :: Integer)
+                           , op_sb      = wire zero
+                           , op_sh      = wire zero
+                           , op_sw      = wire zero
+                           , op_ll      = wire zero -- huh?
+                           , op_sc      = wire zero
 
-                            , op_sll     = left_shift x shamt
-                            , op_srl     = right_shift x shamt
-                            , op_sra     = right_arith_shift x shamt
-                            , op_jr      = wire zero
-                            , op_mfhi    = wire zero
-                            , op_mflo    = wire zero
-                            , op_mult    = wire zero
-                            , op_multu   = wire zero
-                            , op_div     = wire zero
-                            , op_divu    = wire zero
-                            , op_add     = wire nalu
-                            , op_addu    = wire nalu
-                            , op_sub     = wire nalu
-                            , op_subu    = wire nalu
-                            , op_and     = wire nalu
-                            , op_or      = wire nalu
-                            , op_nor     = wire nalu
-                            , op_slt     = wire zero
-                            , op_sltu    = wire zero
+                           , op_sll     = left_shift x shamt
+                           , op_srl     = right_shift x shamt
+                           , op_sra     = right_arith_shift x shamt
+                           , op_jr      = wire zero
+                           , op_mfhi    = wire zero
+                           , op_mflo    = wire zero
+                           , op_mult    = wire zero
+                           , op_multu   = wire zero
+                           , op_div     = wire zero
+                           , op_divu    = wire zero
+                           , op_add     = wire nalu
+                           , op_addu    = wire nalu
+                           , op_sub     = wire nalu
+                           , op_subu    = wire nalu
+                           , op_and     = wire nalu
+                           , op_or      = wire nalu
+                           , op_nor     = wire nalu
+                           , op_slt     = wire zero
+                           , op_sltu    = wire zero
 
-                            , op_nop     = wire zero
-                            }
-  res <- opcode_mux instr ctrl_mux
+                           , op_nop     = wire zero
+                           }
+  res <- opcode_mux instr res_mux
   res_zero <- isZero res
   return ( Alu_flag { carry_out = c_out
                     , is_zero = res_zero
