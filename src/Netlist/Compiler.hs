@@ -1,4 +1,4 @@
-module Netlist.Compiler (kompilator) where
+module Netlist.Compiler (kompilator, compile) where
 
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
@@ -59,14 +59,14 @@ handle_out id = "\nprintbl("++id++");"
 kompilator :: Netlist -> String
 kompilator netl =
        (handle_var (netlist_var netl))
-    ++ "while 1 {"
+    ++ "\nwhile 1 {"
     ++ (concat (List.map handle_eq (netlist_eq netl)))
     ++ (concat (List.map handle_out (netlist_out netl)))
     ++ "}"
 
 compile :: Netlist -> IO ()
 compile ntlst = do
-    content <- readFile "template.c"
+    content <- readFile "src/Netlist/template.c"
     let newContents = content++(kompilator ntlst)
     when (length newContents > 0) $
         writeFile "test.c" newContents
