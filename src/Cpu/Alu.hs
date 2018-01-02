@@ -37,47 +37,36 @@ alu instr x y = do
 
 --doShift :: Instr -> Jazz Bit
 
---decides how immediate is extended
-extension_mode :: Instr -> Jazz Bit
-extension_mode instr =
-  select 5 (instr_opcode instr) \/ neg (select 2 (instr_opcode instr))
-
---decides which is input of the ALU between rt and immediate
---imm_ctrl is true if ALU reads immediate value
-imm_ctrl :: Instr -> Jazz Bit
-imm_ctrl instr = do
-  --every instruction that read rt have an opcode < 8
-  y <- slice 3 6 (instr_opcode instr)
-  nonZero y
-
 nalu_inputs :: Instr -> Jazz (Wire, Wire)
 nalu_inputs instr = do
   rs <- read_reg (instr_rs instr)
   rd <- read_reg (instr_rd instr)
   rt <- read_reg (instr_rt instr)
   pc <- reg_out "pc"
-  signed <- extension_mode instr
-  imm <- extend signed 16 (instr_imm instr)
+  let imm = instr_imm instr
+  sign_ext_imm <- conc imm (List.replicate 16 (select 15 imm))
+  zero_ext_imm <- conc imm (List.replicate 16 False)
+  branch_addr <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   let zero = wire (32 :: Integer, 0 :: Integer)
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
-                            , op_beq     = conc rs rt
-                            , op_bne     = conc rs rt
-                            , op_addi    = conc rs    imm
-                            , op_addiu   = conc rs    imm
-                            , op_slti    = conc rs    imm
-                            , op_sltiu   = conc rs    imm
-                            , op_andi    = conc rs    imm
-                            , op_ori     = conc rs    imm
+                            , op_beq     = conc pc branch_addr
+                            , op_bne     = conc pc branch_addr
+                            , op_addi    = conc rs zero_ext_imm
+                            , op_addiu   = conc rs zero_ext_imm
+                            , op_slti    = conc rs sign_ext_imm
+                            , op_sltiu   = conc rs sign_ext_imm
+                            , op_andi    = conc rs zero_ext_imm
+                            , op_ori     = conc rs zero_ext_imm
                             , op_lui     = conc zero zero
-                            , op_lw      = conc rs    imm
-                            , op_lbu     = conc rs    imm
-                            , op_lhu     = conc rs    imm
-                            , op_sb      = conc rs    imm
-                            , op_sh      = conc rs    imm
-                            , op_sw      = conc rs    imm
-                            , op_ll      = conc rs    imm
-                            , op_sc      = conc rs    imm
+                            , op_lw      = conc rs sign_ext_imm
+                            , op_lbu     = conc rs sign_ext_imm
+                            , op_lhu     = conc rs sign_ext_imm
+                            , op_sb      = conc rs sign_ext_imm
+                            , op_sh      = conc rs sign_ext_imm
+                            , op_sw      = conc rs sign_ext_imm
+                            , op_ll      = conc rs sign_ext_imm
+                            , op_sc      = conc rs sign_ext_imm
 
                             , op_sll     = conc zero zero
                             , op_srl     = conc zero zero
