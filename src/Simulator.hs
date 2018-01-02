@@ -9,7 +9,7 @@ import Netlist.Simulator
 
 import System.IO
 import System.Environment
-import System.FilePath
+import System.FilePath.Posix
 import System.Console.GetOpt
 import Control.Monad (guard, foldM, mapM_)
 
@@ -113,16 +113,24 @@ handle_netlist options name = do
     Left err      -> putStrLn err
     Right net_sch -> run_simulation options net_sch
 
+stripThisDamnedExtension :: String -> String
+stripThisDamnedExtension [] = ""
+stripThisDamnedExtension str = List.reverse (aux (List.reverse str))
+  where aux [] = []
+        aux ('.':cs) = cs
+        aux (c:cs) = c:(aux cs)
+
+
 main :: IO ()
 main = do
   (options, files) <- getArgs >>= get_options
   if null files then
     putStrLn "Error: no netlist file specified"
   else do
-    let netlist_path = List.head files
-    case stripExtension ".net" netlist_path of
-      Nothing   ->
-        putStrLn "Bad extension, use .net"
-      Just name ->
-        handle_netlist options name
+    handle_netlist options (stripThisDamnedExtension (List.head files))
+    -- case stripThisDamnedExtension ".net" netlist_path
+    --   Nothing   ->
+    --     putStrLn "Bad extension, use .net"
+    --   Just name ->
+    --     handle_netlist options name
 
