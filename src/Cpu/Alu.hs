@@ -29,6 +29,7 @@ alu instr x y = do
   ctrl <- nalu_control instr
   (c_out, nalu) <- nalu ctrl xs ys
   zero <- wire (32 :: Integer, 0 :: Integer)
+  let shamt = instr_shamt instr
   let imm = instr_imm instr
   let ctrl_mux = Opcode_mux { op_j       = wire zero
                             , op_jal     = wire nalu
@@ -50,9 +51,9 @@ alu instr x y = do
                             , op_ll      = wire zero
                             , op_sc      = wire zero
 
-                            , op_sll     = shift True False (instr_shamt instr) x
-                            , op_srl     = shift False False (instr_shamt instr) x
-                            , op_sra     = shift False True (instr_shamt instr) x
+                            , op_sll     = left_shift x shamt
+                            , op_srl     = right_shift x shamt
+                            , op_sra     = right_arith_shift x shamt
                             , op_jr      = wire zero
                             , op_mfhi    = wire zero
                             , op_mflo    = wire zero
@@ -79,8 +80,6 @@ alu instr x y = do
                     }
          , res
          )
-
---doShift :: Instr -> Jazz Bit
 
 nalu_inputs :: Instr -> Jazz (Wire, Wire)
 nalu_inputs instr = do
@@ -113,9 +112,9 @@ nalu_inputs instr = do
                             , op_ll      = conc rs sign_ext_imm
                             , op_sc      = conc rs sign_ext_imm
 
-                            , op_sll     = conc zero zero
-                            , op_srl     = conc zero zero
-                            , op_sra     = conc zero zero
+                            , op_sll     = conc rt zero
+                            , op_srl     = conc rt zero
+                            , op_sra     = conc rt zero
                             , op_jr      = conc zero zero
                             , op_mfhi    = conc zero zero
                             , op_mflo    = conc zero zero

@@ -1,0 +1,1692 @@
+module Graph where
+
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import Control.Monad (guard, foldM)
+
+type Graph a = Map.Map a [a]
+
+empty = Map.empty
+
+add_node :: Ord a => a -> Graph a -> Graph a
+add_node x graph = Map.insertWith (\_ l -> l) x [] graph
+
+-- TODO: check if x \in G and y \in G
+add_edge :: Ord a => a -> a -> Graph a -> Graph a
+add_edge x y graph = Map.insertWith (\hd tl -> hd++tl) x [y] (add_node y graph)
+
+neigh :: Ord a => a -> Graph a -> [a]
+neigh x graph = case Map.lookup x graph of
+                  Just l  -> l
+
+list_nodes :: Ord a => Graph a -> [a]
+list_nodes = Map.keys
+
+topological :: Ord a => Graph a -> Either String [a]
+topological graph =
+  let m = (Set.empty, []) in
+  case foldM (dfs Set.empty) m (list_nodes graph) of
+    Nothing      -> Left "combinational cycle"
+    Just (_,ord) -> Right ord
+    where dfs currentPath (checked, ord) x = do
+            guard $ not (Set.member x currentPath)
+            if Set.member x checked then
+              return (checked, ord)
+            else do
+              let newPath = Set.insert x currentPath
+              (checked', ord') <- foldM (dfs newPath) (checked, ord) (neigh x graph)
+              return (Set.insert x checked', x:ord')
+
+module Main where
+
+import Data.List as List
+
+import System.IO
+import System.Environment
+import System.FilePath
+
+import Netlist.Opt
+import Netlist.Show
+import Netlist.Parser
+import Netlist.Typer
+
+handle_netlist name = do
+  code <- readFile (name ++ ".net")
+  let netlist = read_netlist code
+  let net_opt = optimize netlist
+  writeFile (name ++ "_opt.net") (show net_opt)
+  case verify net_opt of
+    Left err -> putStrLn err
+    Right _  -> putStrLn "ok"
+
+main :: IO ()
+main = do
+  files <- getArgs
+  if null files then
+    putStrLn "Error: no netlist file specified"
+  else do
+    let netlist_path = List.head files
+    case stripExtension ".net" netlist_path of
+      Nothing   ->
+        putStrLn "Bad extension, use .net"
+      Just name ->
+        handle_netlist name
+
+module Cpu.Branch where
+
+import qualified Data.List as List
+
+import Netlist.Jazz
+import Cpu.Misc
+import Cpu.Instr
+import Cpu.Adder
+
+-- reads pc and fetches the instruction
+fetch :: Jazz Wire
+fetch = do
+  addr <- bits $ slice 2 32 $ reg_out "pc"
+  x0 <- rom $ conc [False, False] addr
+  x1 <- rom $ conc [True, False] addr
+  x2 <- rom $ conc [False, True] addr
+  x3 <- rom $ conc [True, True] addr
+  conc x0 $ conc x1 $ conc x2 x3
+
+
+-- updates the pc at the end of the cycle
+branch :: Instr -> Jazz ()
+branch instr = do
+  pc <- reg_out "pc"
+  (_, pc') <- adder (32 :: Integer, 4 :: Integer) pc False
+  reg_in "pc" pc'
+
+module Cpu.Nalu ( nalu
+                , nalu_control
+                ) where
+
+import Netlist.Jazz
+
+import Cpu.Instr
+import Cpu.Control
+
+data Nalu_control = Nalu_control { alu_enable_carry :: Bit
+                                 , alu_carry_in     :: Bit
+                                 , alu_force_or     :: Bit
+                                 , alu_disable_and  :: Bit
+                                 , alu_invert_x     :: Bit
+                                 , alu_invert_y     :: Bit
+                                 }
+
+nalu_control_from_wire :: Wr a => a -> Jazz Nalu_control
+nalu_control_from_wire w =
+  bits w >>= \l -> return $
+  Nalu_control { alu_enable_carry = l !! 0
+               , alu_carry_in     = l !! 1
+               , alu_force_or     = l !! 2
+               , alu_disable_and  = l !! 3
+               , alu_invert_x     = l !! 4
+               , alu_invert_y     = l !! 5
+               }
+
+-- enable_carry carry_in force_or invert_x invert_y
+
+nalu_control :: Instr -> Jazz Nalu_control
+nalu_control instr = do
+  ctrl_add  <- wire [ True,  False, False, True,  False, False ]
+  ctrl_sub  <- wire [ True,  True,  False, True,  False, True  ]
+  ctrl_and  <- wire [ False, False, False, False, False, True  ]
+  ctrl_or   <- wire [ False, False, True,  False, True,  False ]
+  ctrl_nor  <- wire [ False, False, False, False, True,  False ]
+  ctrl_xor  <- wire [ False, False, False, True,  False, False ] -- TODO: add the opcode
+  ctrl_def  <- wire [ False, False, False, False, False, False ]
+  let ctrl_mux = Opcode_mux { op_j       = wire ctrl_def
+                            , op_jal     = wire ctrl_add
+                            , op_beq     = wire ctrl_xor
+                            , op_bne     = wire ctrl_xor
+                            , op_addi    = wire ctrl_add
+                            , op_addiu   = wire ctrl_add
+                            , op_slti    = wire ctrl_sub
+                            , op_sltiu   = wire ctrl_sub
+                            , op_andi    = wire ctrl_and
+                            , op_ori     = wire ctrl_or
+                            , op_lui     = wire ctrl_def
+                            , op_lw      = wire ctrl_add
+                            , op_lbu     = wire ctrl_add
+                            , op_lhu     = wire ctrl_add
+                            , op_sb      = wire ctrl_add
+                            , op_sh      = wire ctrl_add
+                            , op_sw      = wire ctrl_add
+                            , op_ll      = wire ctrl_add
+                            , op_sc      = wire ctrl_add
+
+                            , op_sll     = wire ctrl_def
+                            , op_srl     = wire ctrl_def
+                            , op_sra     = wire ctrl_def
+                            , op_jr      = wire ctrl_def
+                            , op_mfhi    = wire ctrl_def
+                            , op_mflo    = wire ctrl_def
+                            , op_mult    = wire ctrl_def
+                            , op_multu   = wire ctrl_def
+                            , op_div     = wire ctrl_def
+                            , op_divu    = wire ctrl_def
+                            , op_add     = wire ctrl_add
+                            , op_addu    = wire ctrl_add
+                            , op_sub     = wire ctrl_sub
+                            , op_subu    = wire ctrl_sub
+                            , op_and     = wire ctrl_and
+                            , op_or      = wire ctrl_or
+                            , op_nor     = wire ctrl_nor
+                            , op_slt     = wire ctrl_sub
+                            , op_sltu    = wire ctrl_sub
+
+                            , op_nop     = wire ctrl_def
+                            }
+  x <- opcode_mux instr ctrl_mux
+  nalu_control_from_wire x
+
+fullalu :: (Bt a, Bt b, Bt c) => Nalu_control -> a -> b -> c -> Jazz (Bit, Bit)
+fullalu ctrl a b c = do
+  a1 <- a <> (alu_invert_x ctrl)
+  b1 <- b <> (alu_invert_y ctrl)
+  r <- ((a1 /\ b1) \/ ((a1 \/ b1) /\ c)) /\ (alu_enable_carry ctrl)
+  s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_disable_and ctrl)) ) <> (alu_force_or ctrl)
+  return (r, s)
+
+nalu :: (Bt a, Bt b) => Nalu_control -> [a] -> [b] -> Jazz (Bit, [Bit])
+nalu ctrl xs ys =
+  let aux :: (Bt a, Bt b, Bt c) => Nalu_control -> [a] -> [b] -> c -> Jazz (Bit, [Bit])
+      aux _ [] [] c = do
+        x <- bit c
+        return (x, [])
+      aux ctrl (x:xs) (y:ys) c = do
+        (c',z) <- fullalu ctrl x y c
+        (c_out, zs) <- aux ctrl xs ys c'
+        return (c_out, z:zs)
+  in
+  do aux ctrl xs ys (alu_carry_in ctrl)
+
+module Cpu.Memory where
+
+import Control.Monad (mapM, mapM_)
+import Data.List as List
+
+import Netlist.Jazz
+
+import Cpu.Misc
+import Cpu.Instr
+import Cpu.Control
+
+registers_names :: [String]
+registers_names = ["zero",
+                   "at",
+                   "v0", "v1",
+                   "a0", "a1", "a2", "a3",
+                   "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+                   "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+                   "t8", "t9",
+                   "k0", "k1",
+                   "gp",
+                   "sp",
+                   "fp",
+                   "ra"
+                   ]
+
+init_registers :: Jazz ()
+init_registers = mapM_ (\i -> new_reg i 32) $ ["pc"]
+                                           ++ List.tail registers_names
+
+nth 0 (x:xs) = x
+nth i (x:xs) = nth (i-1) xs
+
+read_reg :: Wr a => a -> Jazz Wire
+read_reg x =
+  let f :: Integer -> Jazz Wire
+      f 0 = wire $ List.replicate 32 False
+      f i = reg_out (nth i registers_names)
+  in
+  multiplex f x
+
+write_reg :: (Wr a, Wr b) => a -> b -> Jazz ()
+write_reg addr xs =
+  let g :: Wr a => Integer -> a -> Integer -> Jazz Wire
+      g i x j = if i == j then wire x
+                          else reg_out (nth i registers_names)
+  in
+  mapM_ (\i -> reg_in (nth i registers_names) (multiplex (g i xs) addr)) [1..31]
+
+output_reg :: Instr -> Jazz Wire
+output_reg instr = do
+  let rt = wire $ instr_rt instr
+  let rd = wire $ instr_rd instr
+  let zero = wire (5 :: Integer, 0 :: Integer)
+  let ctrl_mux = Opcode_mux { op_j       = zero
+                            , op_jal     = wire (5 :: Integer, 31 :: Integer)
+                            , op_beq     = zero
+                            , op_bne     = zero
+                            , op_addi    = rt
+                            , op_addiu   = rt
+                            , op_slti    = rt
+                            , op_sltiu   = rt
+                            , op_andi    = rt
+                            , op_ori     = rt
+                            , op_lui     = rt
+                            , op_lw      = rt
+                            , op_lbu     = rt
+                            , op_lhu     = rt
+                            , op_sb      = zero
+                            , op_sh      = zero
+                            , op_sw      = zero
+                            , op_ll      = rt
+                            , op_sc      = rt
+
+                            , op_sll     = rd
+                            , op_srl     = rd
+                            , op_sra     = rd
+                            , op_jr      = rt
+                            , op_mfhi    = zero
+                            , op_mflo    = zero
+                            , op_mult    = zero
+                            , op_multu   = zero
+                            , op_div     = zero
+                            , op_divu    = zero
+                            , op_add     = rd
+                            , op_addu    = rd
+                            , op_sub     = rd
+                            , op_subu    = rd
+                            , op_and     = rd
+                            , op_or      = rd
+                            , op_nor     = rd
+                            , op_slt     = rd
+                            , op_sltu    = rd
+
+                            , op_nop     = zero
+                            }
+  opcode_mux instr ctrl_mux
+
+module Cpu.Misc where
+
+import Netlist.Jazz
+
+import Control.Monad (mapM, mapM_)
+import Data.List as List
+
+nonZero :: Wr a => a -> Jazz Bit
+nonZero w =
+  let aux :: Bt a => [a] -> Jazz Bit
+      aux [x] = bit x
+      aux (x:xs) = x \/ nonZero xs
+  in
+  bits w >>= aux
+
+isZero :: Wr a => a -> Jazz Bit
+isZero x = nonZero x >>= neg
+
+multiplex :: Wr a => (Integer -> Jazz Wire) -> a -> Jazz Wire
+multiplex f x =
+  let aux :: Bt a => Integer -> Integer -> [a] -> Jazz Wire
+      aux _ j [] = f j
+      aux i j (x:xs) = do
+        a <- aux (2*i) (j+i) xs
+        b <- aux (2*i) j     xs
+        mux x a b
+  in
+  bits x >>= \l -> aux 1 0 l
+
+-- direction = 1 for left shift
+shift :: (Bt a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz Wire
+shift dir arith sh x =
+  let aux :: Integer -> Wire -> [Bit] -> Jazz Wire
+      aux _ w [] = return w
+      aux i w (x:xs) = do
+        let t = List.genericReplicate i True
+        let f = List.genericReplicate i False
+        w' <- aux (2*i) w xs
+        n  <- wire_size w
+        y1 <- conc f (slice 0 (n-i) w)
+        y2 <- conc (slice i n w) (mux (select (n-1) w /\ arith) t f)
+        w'' <- mux dir y1 y2
+        mux x w'' w'
+  in
+  do w <- wire x
+     xs <- bits sh
+     aux 1 w xs
+
+
+-- signed and unsigned extension
+-- signed n value
+extend :: (Bt a, Wr b) => a -> Integer -> b -> Jazz Wire
+extend s n x = do
+  xs <- bits x
+  a <- s /\ (List.head $ List.reverse xs)
+  conc xs $ mux a
+              (List.genericReplicate n True)
+              (List.genericReplicate n False)
+
+
+-- get_ctrl_alu :: Instr -> Jazz (Alu_control)
+
+-- instr ram_output alu_output alu_flags
+-- write_output :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Alu_flag -> Jazz ()
+
+-- instr data addr
+-- memory :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Jazz [Bit]
+
+module Cpu.Control where
+
+import Netlist.Jazz
+
+import Cpu.Misc
+import Cpu.Instr
+
+import Debug.Trace
+
+data Opcode_mux = Opcode_mux { op_j       :: Jazz Wire
+                             , op_jal     :: Jazz Wire
+                             , op_beq     :: Jazz Wire
+                             , op_bne     :: Jazz Wire
+                             , op_addi    :: Jazz Wire
+                             , op_addiu   :: Jazz Wire
+                             , op_slti    :: Jazz Wire
+                             , op_sltiu   :: Jazz Wire
+                             , op_andi    :: Jazz Wire
+                             , op_ori     :: Jazz Wire
+                             , op_lui     :: Jazz Wire
+                             , op_lw      :: Jazz Wire
+                             , op_lbu     :: Jazz Wire
+                             , op_lhu     :: Jazz Wire
+                             , op_sb      :: Jazz Wire
+                             , op_sh      :: Jazz Wire
+                             , op_sw      :: Jazz Wire
+                             , op_ll      :: Jazz Wire
+                             , op_sc      :: Jazz Wire
+
+                             , op_sll     :: Jazz Wire
+                             , op_srl     :: Jazz Wire
+                             , op_sra     :: Jazz Wire
+                             , op_jr      :: Jazz Wire
+                             , op_mfhi    :: Jazz Wire
+                             , op_mflo    :: Jazz Wire
+                             , op_mult    :: Jazz Wire
+                             , op_multu   :: Jazz Wire
+                             , op_div     :: Jazz Wire
+                             , op_divu    :: Jazz Wire
+                             , op_add     :: Jazz Wire
+                             , op_addu    :: Jazz Wire
+                             , op_sub     :: Jazz Wire
+                             , op_subu    :: Jazz Wire
+                             , op_and     :: Jazz Wire
+                             , op_or      :: Jazz Wire
+                             , op_nor     :: Jazz Wire
+                             , op_slt     :: Jazz Wire
+                             , op_sltu    :: Jazz Wire
+
+                             , op_nop     :: Jazz Wire
+                             }
+
+{-
+               Opcode_mux { op_j       =
+                          , op_jal     =
+                          , op_beq     =
+                          , op_bne     =
+                          , op_addi    =
+                          , op_addiu   =
+                          , op_slti    =
+                          , op_sltiu   =
+                          , op_andi    =
+                          , op_ori     =
+                          , op_lui     =
+                          , op_lw      =
+                          , op_lbu     =
+                          , op_lhu     =
+                          , op_sb      =
+                          , op_sh      =
+                          , op_sw      =
+                          , op_ll      =
+                          , op_sc      =
+
+                          , op_sll     =
+                          , op_srl     =
+                          , op_sra     =
+                          , op_jr      =
+                          , op_mfhi    =
+                          , op_mflo    =
+                          , op_mult    =
+                          , op_multu   =
+                          , op_div     =
+                          , op_divu    =
+                          , op_add     =
+                          , op_addu    =
+                          , op_sub     =
+                          , op_subu    =
+                          , op_and     =
+                          , op_or      =
+                          , op_nor     =
+                          , op_slt     =
+                          , op_sltu    =
+
+                          , op_nop     =
+                          }
+                          -}
+
+
+opcode_mux :: Instr -> Opcode_mux -> Jazz Wire
+opcode_mux instr op =
+  let aux_i 2 = op_j
+      aux_i 3 = op_jal
+      aux_i 4 = op_beq
+      aux_i 5 = op_bne
+      aux_i 8 = op_addi
+      aux_i 9 = op_addiu
+      aux_i 10 = op_slti
+      aux_i 11 = op_sltiu
+      aux_i 12 = op_andi
+      aux_i 13 = op_ori
+      aux_i 15 = op_lui
+      aux_i 35 = op_lw
+      aux_i 36 = op_lbu
+      aux_i 37 = op_lhu
+      aux_i 40 = op_sb
+      aux_i 41 = op_sh
+      aux_i 43 = op_sw
+      aux_i 48 = op_ll
+      aux_i 56 = op_sc
+      aux_i _ = op_nop
+  in
+  let aux_r 0 = op_sll
+      aux_r 2 = op_srl
+      aux_r 3 = op_sra
+      aux_r 8 = op_jr
+      aux_r 16 = op_mfhi
+      aux_r 18 = op_mflo
+      aux_r 24 = op_mult
+      aux_r 25 = op_multu
+      aux_r 26 = op_div
+      aux_r 27 = op_divu
+      aux_r 32 = op_add
+      aux_r 33 = op_addu
+      aux_r 34 = op_sub
+      aux_r 35 = op_subu
+      aux_r 36 = op_and
+      aux_r 37 = op_or
+      aux_r 39 = op_nor
+      aux_r 42 = op_slt
+      aux_r 43 = op_sltu
+      aux_r _ = op_nop
+  in
+  let f i = if i >= 64 then aux_r (i-64) op
+                       else aux_i i op
+  in
+  let opcode = instr_opcode instr in
+  let funct = instr_funct instr in
+  do op <- conc (mux (nonZero opcode) opcode funct) [isZero opcode]
+     multiplex f op
+
+module Cpu.Instr where
+
+import Netlist.Jazz
+
+data Instr = Instr { instr_opcode :: [Bit]
+                   , instr_rs     :: [Bit]
+                   , instr_rd     :: [Bit]
+                   , instr_rt     :: [Bit]
+                   , instr_shamt  :: [Bit]
+                   , instr_funct  :: [Bit]
+                   , instr_imm    :: [Bit]
+                   , instr_addr   :: [Bit]
+                   }
+
+-- decodes the instruction
+decode :: Wr a => a -> Jazz Instr
+decode w = do
+   opcode <- bits $ slice 26 32 w
+   rs     <- bits $ slice 21 26 w
+   rt     <- bits $ slice 16 21 w
+   rd     <- bits $ slice 11 16 w
+   shamt  <- bits $ slice 6  11 w
+   funct  <- bits $ slice 0  6  w
+   imm    <- bits $ slice 0  16 w
+   addr   <- bits $ slice 0  26 w
+   return $ Instr { instr_opcode = opcode
+                  , instr_rs     = rs
+                  , instr_rt     = rt
+                  , instr_rd     = rd
+                  , instr_shamt  = shamt
+                  , instr_funct  = funct
+                  , instr_imm    = imm
+                  , instr_addr   = addr
+                  }
+
+module Cpu.Alu where
+
+import Netlist.Jazz
+import Cpu.Instr
+import Cpu.Misc
+import Cpu.Memory
+import Cpu.Control
+import Cpu.Nalu
+
+import Control.Monad (mapM, mapM_)
+import Data.List as List
+
+data Alu_flag = Alu_flag { carry_out :: Bit
+                         , is_zero   :: Bit
+                         }
+
+-- Liste des controles valant true pour chaque opération
+-- Add -> alu_enable_carry, alu_disable_and
+-- Sub -> alu_enable_carry, alu_carry_in, alu_invert_y, alu_disable_and
+-- And -> alu_invert_y
+-- Nor -> alu_invert_x
+-- Or  -> alu_force_or, alu_invert_x
+-- Xor -> alu_
+
+alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, [Bit])
+alu instr x y = do
+  xs <- bits x
+  ys <- bits y
+  ctrl <- nalu_control instr
+  (c_out, z) <- nalu ctrl xs ys
+  zero <- isZero z
+  return ( Alu_flag { carry_out = c_out
+                    , is_zero = zero
+                    }
+         , z
+         )
+
+--doShift :: Instr -> Jazz Bit
+
+--decides how immediate is extended
+extension_mode :: Instr -> Jazz Bit
+extension_mode instr =
+  select 5 (instr_opcode instr) \/ neg (select 2 (instr_opcode instr))
+
+--decides which is input of the ALU between rt and immediate
+--imm_ctrl is true if ALU reads immediate value
+imm_ctrl :: Instr -> Jazz Bit
+imm_ctrl instr = do
+  --every instruction that read rt have an opcode < 8
+  y <- slice 3 6 (instr_opcode instr)
+  nonZero y
+
+nalu_inputs :: Instr -> Jazz (Wire, Wire)
+nalu_inputs instr = do
+  rs <- read_reg (instr_rs instr)
+  rd <- read_reg (instr_rd instr)
+  rt <- read_reg (instr_rt instr)
+  pc <- reg_out "pc"
+  signed <- extension_mode instr
+  imm <- extend signed 16 (instr_imm instr)
+  let zero = wire (32 :: Integer, 0 :: Integer)
+  let ctrl_mux = Opcode_mux { op_j       = conc zero zero
+                            , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
+                            , op_beq     = conc rs rt
+                            , op_bne     = conc rs rt
+                            , op_addi    = conc rs    imm
+                            , op_addiu   = conc rs    imm
+                            , op_slti    = conc rs    imm
+                            , op_sltiu   = conc rs    imm
+                            , op_andi    = conc rs    imm
+                            , op_ori     = conc rs    imm
+                            , op_lui     = conc zero zero
+                            , op_lw      = conc rs    imm
+                            , op_lbu     = conc rs    imm
+                            , op_lhu     = conc rs    imm
+                            , op_sb      = conc rs    imm
+                            , op_sh      = conc rs    imm
+                            , op_sw      = conc rs    imm
+                            , op_ll      = conc rs    imm
+                            , op_sc      = conc rs    imm
+
+                            , op_sll     = conc zero zero
+                            , op_srl     = conc zero zero
+                            , op_sra     = conc zero zero
+                            , op_jr      = conc zero zero
+                            , op_mfhi    = conc zero zero
+                            , op_mflo    = conc zero zero
+                            , op_mult    = conc zero zero
+                            , op_multu   = conc zero zero
+                            , op_div     = conc zero zero
+                            , op_divu    = conc zero zero
+                            , op_add     = conc rs rt
+                            , op_addu    = conc rs rt
+                            , op_sub     = conc rs rt
+                            , op_subu    = conc rs rt
+                            , op_and     = conc rs rt
+                            , op_or      = conc rs rt
+                            , op_nor     = conc rs rt
+                            , op_slt     = conc rs rt
+                            , op_sltu    = conc rs rt
+
+                            , op_nop     = conc zero zero
+                            }
+  inputs <- opcode_mux instr ctrl_mux
+  input1 <- slice 0 32 inputs
+  input2 <- slice 32 64 inputs
+
+  return (input1, input2)
+
+module Cpu.Adder where
+
+import Netlist.Jazz
+
+fulladder :: (Bt a, Bt b, Bt c) => a -> b -> c -> Jazz (Bit, Bit)
+fulladder a b c = do
+  r <- (a /\ b) \/ ((a \/ b) /\ c)
+  s <- a <> b <> c
+  return (r, s)
+
+nadder :: (Bt a, Bt b, Bt c) => [a] -> [b] -> c -> Jazz (Bit, [Bit])
+nadder [] [] c_in = bit c_in >>= \c_out -> return (c_out, [])
+nadder (x:xs) (y:ys) c_in = do
+  (r, s) <- fulladder x y c_in
+  (c_out, zs) <- nadder xs ys r
+  return (c_out, s:zs)
+
+adder :: (Wr a, Wr b, Bt c) => a -> b -> c -> Jazz (Bit, Wire)
+adder a b c_in = do
+  xs <- bits a
+  ys <- bits b
+  (c_out, zs) <- nadder xs ys c_in
+  w <- wire zs
+  return (c_out, w)
+
+module Main where
+
+import qualified Data.List as List
+
+import Netlist.Ast
+import Netlist.Jazz
+import Cpu.Instr
+import Cpu.Misc
+import Cpu.Alu
+import Cpu.Memory
+import Cpu.Branch
+
+cpu :: Jazz ()
+cpu = do init_registers
+         instr <- decode fetch
+         (input1, input2) <- nalu_inputs instr
+         (_, z) <- alu instr input1 input2
+         output "z" z
+         write_reg (output_reg instr) z
+         branch instr
+
+netlist = build_netlist cpu
+netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names ++ ["pc"] } 
+
+main :: IO ()
+main = writeFile "cpu.net" $ show netlist'
+
+module Main where
+
+import Netlist.Ast
+import Netlist.Show
+import Netlist.Parser (read_netlist)
+import Netlist.Typer
+import Netlist.Scheduler
+import Netlist.Simulator
+
+import System.IO
+import System.Environment
+import System.FilePath
+import System.Console.GetOpt
+import Control.Monad (guard, foldM, mapM_)
+
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import Data.Map.Lazy ((!))
+import Data.Maybe (fromJust)
+
+data Flag =
+    PrintOnly
+  | NumberOfSteps Integer
+  | LoadRom FilePath
+  | LoadRam FilePath
+  | Optimize
+  deriving (Eq, Show)
+
+option_descriptions :: [OptDescr Flag]
+option_descriptions =
+  [ Option ['n'] []
+           (ReqArg (NumberOfSteps . read) "number of steps to simulate")
+           "Number of steps to simulate"
+  , Option ['r'] ["rom"]
+           (ReqArg LoadRom "path to bin file")
+           "Load a ROM file"
+  , Option [] ["ram"]
+           (ReqArg LoadRam "path to bin file")
+           "Load RAM file"
+  , Option ['o'] ["optimize"]
+           (NoArg Optimize)
+           "Enable optimizations"
+  ]
+
+get_options :: [String] -> IO ([Flag], [String])
+get_options argv =
+  case getOpt Permute option_descriptions argv of
+    (o, n, [])   ->
+      return (o,n)
+    (_, _, errs) ->
+      ioError (userError (concat errs ++ usageInfo header option_descriptions))
+    where header = "Usage: simulator file [OPTION...]..."
+
+bool_list_of_string :: String -> [Bool]
+bool_list_of_string = aux []
+  where aux acc []       = acc
+        aux acc ('1':xs) = aux (True:acc)  xs
+        aux acc ('0':xs) = aux (False:acc) xs
+
+read_ram_file :: FilePath -> IO Ram
+read_ram_file filepath = do s  <- readFile filepath
+                            let values = List.map bool_list_of_string $ words s
+                            let index  = [0..(List.genericLength values - 1)]
+                            let l = zip index (List.reverse $ values)
+                            return $ Map.fromList l
+
+read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
+read_netlist_in net =
+  let sizes = Map.fromList $ netlist_var net in
+  let aux m i = do putStr (i++"("++show(sizes!i)++"):")
+                   hFlush stdout
+                   s <- getLine -- TODO verify length
+                   let v = bool_list_of_string s
+                   return $ Map.insert i v m
+  in do
+  putStrLn "---- Input ----- "
+  let f m (i,n) = Map.insert i (List.replicate (fromInteger n) False) m
+  let m = List.foldl f Map.empty (netlist_var net)
+  foldM aux m (netlist_in net)
+
+print_vars :: Map.Map Ident [Bool] -> [Ident] -> IO ()
+print_vars vars l = do
+  putStrLn $ "---- Output ----"
+  mapM_ (print_var vars) l
+    where print_var var i =
+            putStrLn $ i ++ ":" ++ string_of_bool_list (fromJust $ Map.lookup i var)
+
+get_n [] = 1
+get_n ((NumberOfSteps n):_) = n
+get_n (_:os) = get_n os
+
+get_ram [] = return Map.empty
+get_ram ((LoadRam path):_) = read_ram_file path
+get_ram (_:os) = get_rom os
+
+get_rom [] = return Map.empty
+get_rom ((LoadRom path):_) = read_ram_file path
+get_rom (_:os) = get_rom os
+
+run_simulation options net_sch = do
+  let n = get_n options
+  rom <- get_rom options
+  ram <- get_ram options
+  vars <- read_netlist_in net_sch
+  let (ram', vars') = simulate n rom ram vars net_sch
+  print_vars vars' (netlist_out net_sch)
+  -- TODO: update RAM file
+
+handle_netlist options name = do
+  code <- readFile (name ++ ".net")
+  let netlist = read_netlist code
+  case verify netlist of
+    Left err -> putStrLn err
+    Right _ ->
+      case schedule netlist of
+        Left err      -> putStrLn err
+        Right net_sch -> run_simulation options net_sch
+
+main :: IO ()
+main = do
+  (options, files) <- getArgs >>= get_options
+  if null files then
+    putStrLn "Error: no netlist file specified"
+  else do
+    let netlist_path = List.head files
+    case stripExtension ".net" netlist_path of
+      Nothing   ->
+        putStrLn "Bad extension, use .net"
+      Just name ->
+        handle_netlist options name
+
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
+module Netlist.Jazz where
+
+import qualified Data.Map.Strict as Map
+import qualified Data.List as List
+import qualified Data.Set as Set
+import Data.Map.Lazy ((!))
+
+import Data.Functor.Identity (Identity)
+
+import Netlist.Ast
+import Netlist.Show
+import Control.Monad.State.Lazy
+
+type Jazz = State Netmap
+
+add_eq :: Equation -> Netmap -> Netmap
+add_eq (id, exp) netmap =
+  let n = exp_size exp netmap in
+  Netmap { netmap_eqs   = Map.insert id exp (netmap_eqs netmap)
+         , netmap_ids   = Map.insert exp id (netmap_ids netmap)
+         , netmap_in    = netmap_in netmap
+         , netmap_out   = netmap_out netmap
+         , netmap_sizes = Map.insert id n (netmap_sizes netmap)
+         }
+
+create_wire :: Expression -> Jazz Ident
+create_wire exp = do
+  s <- get
+  case Map.lookup exp (netmap_ids s) of
+    Just id -> return id
+    Nothing -> let id = "_x" ++ show (Map.size (netmap_ids s)) in
+               let s' = add_eq (id, exp) s in
+               put s' >> return id
+
+build_netmap :: Jazz () -> Netmap
+build_netmap x = (\(a,b) -> b) (runState x netmap_empty)
+
+build_netlist :: Jazz () -> Netlist
+build_netlist = netlist_from_netmap . build_netmap
+
+newtype Bit = Bit Argument
+class Bt a where
+  bit :: a -> Jazz Bit
+
+newtype Wire = Wire (Integer, Argument)
+class Wr a where
+  bits :: a -> Jazz [Bit]
+  wire :: a -> Jazz Wire
+
+wire_size :: Wr a => a -> Jazz Integer
+wire_size x = wire x >>= (\(Wire(n,_)) -> return n)
+
+input :: Ident -> Integer -> Jazz Wire
+input id n = do s <- get
+                let s' = Netmap { netmap_eqs   = netmap_eqs s
+                                , netmap_ids   = netmap_ids s
+                                , netmap_in    = Set.insert id (netmap_in s)
+                                , netmap_out   = netmap_out s
+                                , netmap_sizes = Map.insert id n (netmap_sizes s)
+                                }
+                put s'
+                return $ Wire (n, ArgVar id)
+
+output :: Wr a => Ident -> a -> Jazz ()
+output id x = do Wire (n, a) <- wire x
+                 let exp = Earg a
+                 s <- get
+                 let s' = Netmap { netmap_eqs   = Map.insert id exp (netmap_eqs s)
+                                 , netmap_ids   = Map.insert exp id (netmap_ids s)
+                                 , netmap_in    = netmap_in s
+                                 , netmap_out   = Set.insert id (netmap_out s)
+                                 , netmap_sizes = Map.insert id n (netmap_sizes s)
+                                 }
+                 put s'
+
+new_reg :: Ident -> Integer -> Jazz ()
+new_reg id n = do s <- get
+                  put $ Netmap { netmap_eqs   = netmap_eqs s
+                               , netmap_ids   = netmap_ids s
+                               , netmap_in    = netmap_in s
+                               , netmap_out   = netmap_out s
+                               , netmap_sizes = Map.insert id n (netmap_sizes s)
+                               }
+
+reg_out :: Ident -> Jazz Wire
+reg_out id = do s <- get
+                let exp = Ereg id
+                let n = arg_size (ArgVar id) s
+                id' <- create_wire exp
+                return $ Wire (n, ArgVar id')
+
+reg_in :: Wr a => Ident -> a -> Jazz ()
+reg_in id x = do Wire (n, a) <- wire x
+                 let exp = Earg a
+                 s <- get
+                 let s' = Netmap { netmap_eqs   = Map.insert id exp (netmap_eqs s)
+                                 , netmap_ids   = Map.insert exp id (netmap_ids s)
+                                 , netmap_in    = netmap_in s
+                                 , netmap_out   = netmap_out s
+                                 , netmap_sizes = netmap_sizes s
+                                 }
+                 put s'
+
+neg :: Bt a => a -> Jazz Bit
+neg x = do Bit a <- bit x
+           let exp = Enot a
+           id <- create_wire exp
+           return $ Bit (ArgVar id)
+
+binop :: (Bt a, Bt b) => BinOp -> a -> b -> Jazz Bit
+binop op x y = do Bit a <- bit x
+                  Bit b <- bit y
+                  let exp = Ebinop op a b
+                  id <- create_wire exp
+                  return $ Bit (ArgVar id)
+
+(\/) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x \/ y = binop Or x y
+
+(/\) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x /\ y = binop And x y
+
+(<>) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+x <> y = binop Xor x y
+
+mux :: (Bt a, Wr b, Wr c) => a -> b -> c -> Jazz Wire
+mux x y z = do Bit a <- bit x
+               Wire (n, b) <- wire y
+               Wire (_, c) <- wire z
+               let exp = Emux a b c
+               id <- create_wire exp
+               return $ Wire (n, ArgVar id)
+
+rom :: Wr a => a -> Jazz Wire
+rom x = do Wire (_, a) <- wire x
+           let exp = Erom a
+           id <- create_wire exp
+           return $ Wire (word_size, ArgVar id)
+
+ram :: (Wr a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz Wire
+ram ra we wa dt = do Wire (_, a) <- wire ra
+                     Bit b <- bit we
+                     Wire (_, c) <- wire wa
+                     Wire (_, d) <- wire dt
+                     let exp = Eram a b c d
+                     id <- create_wire exp
+                     return $ Wire (word_size, ArgVar id)
+
+conc :: (Wr a, Wr b) => a -> b -> Jazz Wire
+conc x y = do Wire (n, a) <- wire x
+              Wire (m, b) <- wire y
+              let exp = Econcat b a
+              id <- create_wire exp
+              return $ Wire (n+m, ArgVar id)
+
+slice :: Wr a => Integer -> Integer -> a -> Jazz Wire
+slice i j x = do Wire (n, a) <- wire x
+                 let exp = Eslice i j a
+                 id <- create_wire exp
+                 return $ Wire (j-i, ArgVar id)
+
+select :: Wr a => Integer -> a -> Jazz Bit
+select i x = do Wire (_, a) <- wire x
+                let exp = Eselect i a
+                id <- create_wire exp
+                return $ Bit (ArgVar id)
+
+instance Bt Bit where
+  bit x = return x
+instance Bt a => Bt (Jazz a) where
+  bit x = x >>= bit
+instance Bt Bool where
+  bit x = return $ Bit (ArgCst [x])
+instance Bt Integer where
+  bit 0 = return $ Bit (ArgCst [False])
+  bit 1 = return $ Bit (ArgCst [True])
+
+instance Wr Wire where
+  bits (Wire (n, x)) = mapM (\i -> select i (Wire (n, x))) [0..n-1]
+  wire x = return x
+
+wire_of_integer :: (Integer, Integer) -> Wire
+wire_of_integer (n, i) =
+  let aux 0 _ = []
+      aux n 0 = List.genericReplicate n False
+      aux n i = (mod i 2 == 1):(aux (n-1) (div i 2))
+  in
+  Wire (n, ArgCst $ aux n i)
+
+wire_of_bool_list :: [Bool] -> Wire
+wire_of_bool_list l = Wire (List.genericLength l, ArgCst l)
+
+instance Wr (Integer, Integer) where
+  bits x = bits (wire_of_integer x)
+  wire x = return (wire_of_integer x)
+
+instance Wr a => Wr (Jazz a) where
+  bits x = x >>= bits
+  wire x = x >>= wire
+instance Bt a => Wr [a] where
+  bits x = mapM bit x
+  wire x = do l <- mapM bit x
+              let aux (Wire (n,a)) (Bit b) =
+                    do id <- create_wire (Econcat b a)
+                       return $ Wire ((n+1), (ArgVar id))
+              case l of
+                []         -> return $ Wire (0, ArgCst [])
+                (Bit x):xs -> foldM aux (Wire (1, x)) xs
+
+squeeze :: Wr a => a -> Jazz [Bit]
+squeeze = bits . wire
+
+module Netlist.Parser where
+
+import Netlist.Ast
+import qualified Data.List as List
+
+import Text.Parsec hiding (spaces)
+import Text.Parsec.String
+import qualified Text.Parsec.Token as Tok
+import Text.Parsec.Language
+
+def = Tok.LanguageDef
+        { Tok.commentStart    = ""
+        , Tok.commentEnd      = ""
+        , Tok.commentLine     = "#"
+        , Tok.nestedComments  = False
+        , Tok.identStart      = char '_' <|> letter
+        , Tok.identLetter     = letter <|> digit <|> char '\'' <|> char '_'
+        , Tok.opStart         = anyToken
+        , Tok.opLetter        = anyToken
+        , Tok.reservedNames   = [ "INPUT", "OUTPUT", "VAR", "IN"
+                                , "OR", "XOR", "AND", "NAND"
+                                , "REG", "NOT", "MUX", "ROM", "RAM"
+                                , "CONCAT", "SLICE", "SELECT"
+                                ]
+        , Tok.reservedOpNames = []
+        , Tok.caseSensitive   = True
+        }
+
+lexer = Tok.makeTokenParser def
+
+symbol  = Tok.symbol lexer
+ident   = Tok.identifier lexer
+natural = Tok.natural lexer
+
+binop :: Parser BinOp
+binop = try (symbol "OR"   >> return Or)
+    <|> try (symbol "XOR"  >> return Xor)
+    <|> try (symbol "AND"  >> return And)
+    <|> try (symbol "NAND" >> return Nand)
+
+spaces :: Parser ()
+spaces = skipMany1 space
+
+ident_with_size :: Parser (Ident, Integer)
+ident_with_size = do id <- ident
+                     n <- try ((skipMany space) >> (symbol ":") >> natural)
+                      <|> return 1
+                     symbol ""
+                     return (id,n)
+
+constant :: Parser [Bool]
+constant = do x <- many1 (oneOf "01")
+              symbol ""
+              return $ List.reverse (List.map aux x)
+  where aux '0' = False
+        aux '1' = True
+
+argument :: Parser Argument
+argument = do x <- constant
+              return $ ArgCst x
+       <|> do x <- ident
+              return $ ArgVar x
+
+expression :: Parser Expression
+expression = do op <- try binop
+                a <- argument
+                b <- argument
+                return $ Ebinop op a b
+
+         <|> do try (symbol "REG")
+                i <- ident
+                return $ Ereg i
+
+         <|> do try (symbol "NOT")
+                a <- argument
+                return $ Enot a
+
+         <|> do try (symbol "MUX")
+                a <- argument
+                b <- argument
+                c <- argument
+                return $ Emux a b c
+
+         <|> do try (symbol "ROM")
+                a <- argument
+                return $ Erom a
+
+         <|> do try (symbol "RAM")
+                a <- argument
+                b <- argument
+                c <- argument
+                d <- argument
+                return $ Eram a b c d
+
+         <|> do try (symbol "CONCAT")
+                a <- argument
+                b <- argument
+                return $ Econcat a b
+
+         <|> do try (symbol "SLICE")
+                i <- natural
+                j <- natural
+                a <- argument
+                return $ Eslice i j a
+
+         <|> do try (symbol "SELECT")
+                i <- natural
+                a <- argument
+                return $ Eselect i a
+
+         <|> do a <- argument
+                return $ Earg a
+
+equation :: Parser Equation
+equation = do id <- ident
+              symbol "="
+              expr <- expression
+              return (id, expr)
+
+netlist :: Parser Netlist
+netlist = do skipMany space
+             symbol "INPUT"
+             l1 <- sepBy ident (symbol ",")
+             symbol "OUTPUT"
+             l2 <- sepBy ident (symbol ",")
+             symbol "VAR"
+             l3 <- sepBy ident_with_size (symbol ",")
+             symbol "IN"
+             l4 <- many equation
+             return $ Netlist { netlist_eq  = l4
+                              , netlist_in  = l1
+                              , netlist_out = l2
+                              , netlist_var = l3
+                              }
+
+read_netlist :: String -> Netlist
+read_netlist code = case parse netlist "netlist" code of
+                      Left err -> error ("Parsing error: " ++ show err)
+                      Right val -> val
+
+module Netlist.Ast where
+
+import qualified Data.Map.Strict as Map
+import qualified Data.List as List
+import qualified Data.Set as Set
+import Data.Map.Lazy ((!))
+
+word_size :: Integer
+word_size = 8
+addr_size :: Integer
+addr_size = 32
+
+type Ident = String
+type Value = [Bool]
+
+data BinOp = Or | Xor | And | Nand
+             deriving (Eq, Ord)
+
+data Argument = ArgCst Value | ArgVar Ident
+                deriving (Eq, Ord)
+
+data Expression = Earg Argument
+                | Ereg Ident
+                | Enot Argument
+                | Ebinop BinOp Argument Argument
+                | Emux Argument Argument Argument
+                | Erom Argument
+                  -- read_addr
+                | Eram Argument Argument Argument Argument
+                  -- read_addr write_enable write_addr data
+                | Econcat Argument Argument
+                | Eslice Integer Integer Argument
+                | Eselect Integer Argument
+                deriving (Eq, Ord)
+
+type Equation = (Ident, Expression)
+
+data Netlist = Netlist { netlist_eq  :: [Equation]
+                       , netlist_in  :: [Ident]
+                       , netlist_out :: [Ident]
+                       , netlist_var :: [(Ident,Integer)]
+                       }
+
+type Ram  = Map.Map Integer Value
+type Vars = Map.Map Ident Value
+
+empty_netlist = Netlist { netlist_eq  = []
+                        , netlist_in  = []
+                        , netlist_out = []
+                        , netlist_var = []
+                        }
+
+apply_op :: BinOp -> [Bool] -> [Bool] -> [Bool]
+apply_op op a b =
+  let f = case op of
+            Or   -> \(x,y) -> x || y
+            Xor  -> \(x,y) -> x /= y
+            And  -> \(x,y) -> x && y
+            Nand -> \(x,y) -> not(x&&y)
+  in
+  List.map f (List.zip a b)
+
+get_idents :: Expression -> [Ident]
+get_idents expr =
+  let aux (ArgVar id) = [id]
+      aux (ArgCst _) = []
+  in
+  case expr of
+    Earg a        -> aux a
+    Ereg id       -> []
+    Enot a        -> aux a
+    Ebinop op a b -> aux a ++ aux b
+    Emux a b c    -> aux a ++ aux b ++ aux c
+    Erom a        -> aux a
+    Eram a b c d  -> aux a
+    Econcat a b   -> aux a ++ aux b
+    Eslice i j a  -> aux a
+    Eselect i a   -> aux a
+
+-- NETMAP
+
+data Netmap = Netmap { netmap_eqs :: Map.Map Ident Expression
+                     , netmap_ids :: Map.Map Expression Ident
+                     , netmap_in  :: Set.Set Ident
+                     , netmap_out :: Set.Set Ident
+                     , netmap_sizes :: Map.Map Ident Integer
+                     }
+
+arg_size :: Argument -> Netmap -> Integer
+arg_size (ArgVar id) netmap = (netmap_sizes netmap) ! id
+arg_size (ArgCst v) _ = List.genericLength v
+
+exp_size :: Expression -> Netmap -> Integer
+exp_size exp netmap =
+  case exp of
+    Earg a        -> arg_size a netmap
+    Ereg id       -> arg_size (ArgVar id) netmap
+    Enot a        -> arg_size a netmap
+    Ebinop op a b -> arg_size a netmap
+    Emux a b c    -> arg_size b netmap
+    Erom a        -> word_size
+    Eram a b c d  -> word_size
+    Econcat a b   -> arg_size a netmap + arg_size b netmap
+    Eslice i j a  -> j - i
+    Eselect i a   -> 1
+
+netmap_empty = Netmap { netmap_eqs = Map.empty
+                      , netmap_ids = Map.empty
+                      , netmap_in = Set.empty
+                      , netmap_out = Set.empty
+                      , netmap_sizes = Map.empty
+                      }
+
+netlist_from_netmap x =
+  Netlist { netlist_eq = Map.toAscList $ netmap_eqs x
+          , netlist_in = Set.toList $ netmap_in x
+          , netlist_out = Set.toList $ netmap_out x
+          , netlist_var = Map.toAscList $ netmap_sizes x
+          }
+
+netmap_from_netlist x =
+  Netmap { netmap_eqs = Map.fromList $ netlist_eq x
+         , netmap_ids = Map.fromList $ List.map (\(i,e) -> (e,i)) (netlist_eq x)
+         , netmap_in = Set.fromList $ netlist_in x
+         , netmap_out = Set.fromList $ netlist_out x
+         , netmap_sizes = Map.fromList $ netlist_var x
+         }
+
+module Netlist.Show where
+
+import qualified Data.List as List
+import Netlist.Ast
+
+join s = List.foldl (++) "" . List.intersperse s
+
+string_of_var (id, 1) = id
+string_of_var (id, n) = id ++ ":" ++ show n
+
+string_of_bool_list w = aux "" w
+    where aux acc []         = acc
+          aux acc (True:xs)  = aux ('1':acc) xs
+          aux acc (False:xs) = aux ('0':acc) xs
+
+instance Show BinOp where
+  show Or   = "OR"
+  show Xor  = "XOR"
+  show And  = "AND"
+  show Nand = "NAND"
+
+instance Show Argument where
+  show (ArgCst w) = string_of_bool_list w
+  show (ArgVar i) = i
+
+instance Show Expression where
+  show (Earg a)           = show a
+  show (Ereg id)          = "REG " ++ id
+  show (Enot a)           = "NOT " ++ show a
+  show (Ebinop op a b)    = show op ++ " " ++ show a
+                                    ++ " " ++ show b
+  show (Emux a b c)       = "MUX " ++ show a ++ " " ++ show b
+                                             ++ " " ++ show c
+  show (Erom a)           = "ROM " ++ show a
+  show (Eram a b c d)     = "RAM " ++ show a ++ " " ++ show b
+                            ++ " " ++ show c ++ " " ++ show d
+  show (Econcat a b)      = "CONCAT " ++ show a ++ " " ++ show b
+  show (Eslice i j a)     = "SLICE "  ++ show i ++ " " ++ show j
+                                                ++ " " ++ show a
+  show (Eselect i a)      = "SELECT " ++ show i ++ " " ++ show a
+
+string_of_equation (id, expr) = id ++ " = " ++ show expr
+
+instance Show Netlist where
+  show netlist = "INPUT "  ++ join ", " (netlist_in netlist) ++ "\n"
+              ++ "OUTPUT " ++ join ", " (netlist_out netlist) ++ "\n"
+              ++ "VAR "    ++ join ", " (List.map string_of_var (netlist_var netlist)) ++ "\n"
+              ++ "IN\n"    ++ join "\n" (List.map string_of_equation (netlist_eq netlist)) 
+              ++ "\n"
+module Netlist.Opt where
+
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import Data.Map.Lazy ((!))
+import Data.Maybe (fromJust)
+import Data.Functor ((<$>))
+
+import Netlist.Ast
+import Netlist.Scheduler
+import Netlist.Show
+import Netlist.Typer -- for debugging
+import Netlist.Jazz
+
+fixpoint f x = if x == f x then x else fixpoint f (f x)
+
+-- delete useless equations and wires in a netmap
+clear :: Netmap -> Netmap
+clear netmap =
+  let exps = netmap_eqs netmap in
+  let f :: Set.Set Ident -> Set.Set Ident
+      f s =
+        let aux id =
+              case Map.lookup id exps of
+                Nothing         -> Set.empty
+                Just (Ereg id') -> Set.singleton id'
+                Just exp        -> Set.fromList (get_idents exp)
+        in
+        Set.unions $ [s, netmap_out netmap] ++ (Set.toList (Set.map aux s))
+  in
+  let usefull = fixpoint f Set.empty in
+  let filter id = Set.member id usefull in
+  Netmap { netmap_eqs   = Map.filterWithKey (\i e -> filter i) $ netmap_eqs netmap
+         , netmap_ids   = Map.filterWithKey (\e i -> filter i) $ netmap_ids netmap
+         , netmap_in    = Set.filter filter (netmap_in netmap)
+         , netmap_out   = netmap_out netmap
+         , netmap_sizes = Map.filterWithKey (\i n -> filter i) $ netmap_sizes netmap
+         }
+
+opt_tauto_0 :: Netmap -> Equation -> Netmap
+opt_tauto_0 netmap (id, exp) =
+  let exps = netmap_eqs netmap in
+  let aux :: Argument -> Argument
+      aux (ArgVar id) = case Map.lookup id exps of
+                          Just (Earg a) -> a -- assert: a == ArgCst v 
+                          _             -> ArgVar id
+      aux (ArgCst v) = ArgCst v
+  in
+  let exp' = case exp of
+        Earg (ArgVar id) -> case Map.lookup id exps of
+                              Just exp' -> exp'
+                              Nothing   -> Earg (ArgVar id)
+        Earg (ArgCst v)  -> Earg (ArgCst v)
+        Ereg id          -> Ereg id
+        Enot a           -> case aux a of
+                              ArgCst v -> Earg $ ArgCst (List.map not v)
+                              a'       -> Enot a'
+        Ebinop op a b    -> case (aux a, aux b) of
+                              (ArgCst u, ArgCst v) -> Earg $ ArgCst (apply_op op u v)
+                              (a', b')             -> Ebinop op a' b'
+        Emux a b c       -> case aux a of
+                              ArgCst [x] -> if x then Earg $ aux b else Earg $ aux c
+                              a'         -> Emux a' (aux b) (aux c)
+        Erom a           -> Erom $ aux a
+        Eram ra we wa dt -> Eram (aux ra) (aux we) (aux wa) (aux dt)
+        Econcat a b      -> case (aux a, aux b) of
+                              (ArgCst u, ArgCst v) -> Earg $ ArgCst (v ++ u)
+                              (a', b')             -> Econcat a' b'
+        Eslice i j a     -> case aux a of
+                              ArgCst u -> Earg $ ArgCst (List.genericTake (j-i)
+                                               $ List.genericDrop i u)
+                              a'       -> Eslice i j a'
+        Eselect i a      -> case aux a of
+                              ArgCst u -> Earg $ ArgCst (List.genericTake 1 $ List.genericDrop i u)
+                              a'       -> Eselect i a'
+  in
+  add_eq (id, exp') netmap
+
+opt_tauto_1 :: Netmap -> Equation -> Netmap
+opt_tauto_1 netmap (id, Econcat (ArgVar id1) (ArgVar id2)) =
+  let aux (Eselect i x) = Eslice i (i+1) x
+      aux exp = exp
+  in
+  case (aux <$> Map.lookup id1 (netmap_eqs netmap), aux <$> Map.lookup id2 (netmap_eqs netmap)) of
+    (Just (Eslice k l y), Just (Eslice i j x)) ->
+      if j == k && x == y then
+          add_eq (id, Eslice i l x) netmap
+      else
+          add_eq (id, Econcat (ArgVar id1) (ArgVar id2)) netmap
+    _ -> add_eq (id, Econcat (ArgVar id1) (ArgVar id2)) netmap
+opt_tauto_1 netmap eq = add_eq eq netmap
+
+opt_id :: Netmap -> Equation -> Netmap
+opt_id netmap eq = add_eq eq netmap
+
+apply_opt :: Netlist -> (Netmap -> Equation -> Netmap) -> Netlist
+apply_opt netlist opt =
+  let Right net_sch = schedule netlist in
+  let netmap0 = Netmap { netmap_eqs   = Map.empty
+                       , netmap_ids   = Map.empty
+                       , netmap_in    = Set.fromList (netlist_in net_sch)
+                       , netmap_out   = Set.fromList (netlist_out net_sch)
+                       , netmap_sizes = Map.fromList (netlist_var net_sch)
+                       } in
+  let netmap1 = List.foldl opt netmap0 (netlist_eq net_sch) in
+  netlist_from_netmap (clear netmap1)
+
+optimize :: Netlist -> Netlist -- TODO: Netlist -> Either String Netlist
+optimize netlist =
+  List.foldl apply_opt netlist [opt_tauto_0, opt_tauto_1]
+
+module Netlist.Simulator (simulate) where
+
+import qualified Data.Map.Strict as Map
+import qualified Data.List as List
+import Data.Map.Lazy ((!))
+
+import Netlist.Ast
+
+def :: Value
+def = List.genericReplicate word_size False
+
+int_of_bool_list :: [Bool] -> Integer
+int_of_bool_list l = aux 0 (List.reverse l)
+  where aux acc []         = acc
+        aux acc (True:xs)  = aux (1+2*acc) xs
+        aux acc (False:xs) = aux (2*acc)   xs
+
+read_ram :: Value -> Ram -> Value
+read_ram addr ram = Map.findWithDefault def (int_of_bool_list addr) ram
+
+write_ram :: Value -> Value -> Ram -> Ram
+write_ram addr x ram = Map.insert (int_of_bool_list addr) x ram
+
+value :: Map.Map Ident Value -> Argument -> Value
+value m (ArgVar i) = m ! i
+value _ (ArgCst c) = c
+
+get_slice :: Integer -> Integer -> [Bool] -> [Bool]
+--get_slice 0 0 _      = []
+--get_slice 0 j (x:xs) = x:(get_slice 0 (j-1) xs)
+--get_slice i j (x:xs) = get_slice (i-1) (j-1) xs
+get_slice i j l = List.genericDrop i $ List.genericTake j l
+
+update_vars :: Ram -> Ram -> Vars -> Vars -> Equation -> Vars
+update_vars rom ram regs vars (id, exp) =
+  let v = case exp of
+            Earg a           -> value vars a
+            Ereg i           -> regs ! i
+            Enot a           -> List.map not (value vars a)
+            Ebinop op a b    -> apply_op op (value vars a) (value vars b)
+            Emux a b c       -> case value vars a of
+                                  [True]  -> value vars b
+                                  [False] -> value vars c
+            Erom a           -> read_ram (value vars a) rom
+            Eram a _ _ _     -> read_ram (value vars a) ram
+            Econcat a b      -> (value vars b) ++ (value vars a)
+            Eslice i1 i2 a   -> get_slice i1 i2 (value vars a)
+            Eselect i a      -> get_slice i (i+1) (value vars a)
+  in Map.insert id v vars
+
+update_ram :: Vars -> Ram -> Equation -> Ram
+update_ram vars ram (_, Eram _ we wa dt) =
+  case value vars we of
+    [True]  -> Map.insert (int_of_bool_list (value vars wa)) (value vars dt) ram
+    [False] -> ram
+update_ram _ ram _ = ram
+
+simulate :: Integer -> Ram -> Ram -> Vars -> Netlist -> (Ram, Vars)
+simulate 0 _ ram regs net = do
+  (ram,regs)
+simulate n rom ram vars net =
+  let vars' = List.foldl (update_vars rom ram vars) vars (netlist_eq net) in
+  let ram'  = List.foldl (update_ram vars') ram (netlist_eq net) in
+  simulate (n-1) rom ram' vars' net
+
+module Netlist.Scheduler (schedule) where
+
+import Netlist.Ast
+import Graph
+
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import Data.Maybe (catMaybes)
+
+make_graph :: Netlist -> Graph.Graph Ident
+make_graph net =
+  let graph0 = List.foldl (\g (i,_) -> Graph.add_node i g)
+                          Graph.empty
+                          (netlist_var net)
+  in
+  let aux graph (i,exp) = List.foldl (\g j -> add_edge i j g)
+                          graph
+                          (get_idents exp)
+  in
+  List.foldl aux graph0 (netlist_eq net)
+
+schedule :: Netlist -> Either String Netlist
+schedule net = do
+  let graph = make_graph net
+  ord <- topological graph
+  let eqs = Map.fromList (netlist_eq net)
+  let get_eq i = Map.lookup i eqs >>= (\eq -> return (i,eq))
+  let l = List.map get_eq ord
+  let new_eq = List.reverse $ catMaybes l
+  return $ Netlist { netlist_eq  = new_eq
+                   , netlist_in  = (netlist_in net)
+                   , netlist_out = (netlist_out net)
+                   , netlist_var = (netlist_var net)
+                   }
+
+module Netlist.Typer (verify) where
+
+import Netlist.Ast
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import Control.Monad (foldM, mapM_)
+import Data.Map.Lazy ((!))
+
+check_equation :: (Map.Map Ident Integer) -> Equation -> Bool
+check_equation sizes (id, exp) =
+  let size_arg a = case a of
+                   ArgCst v -> fromIntegral (List.length v)
+                   ArgVar i -> sizes ! i
+  in
+  let n = sizes ! id in
+  case exp of
+    Earg a           -> n == size_arg a
+    Ereg r           -> n == sizes ! r
+    Enot a           -> n == size_arg a
+    Ebinop op a b    -> n == size_arg a && n == size_arg b
+    Emux a b c       -> 1 == size_arg a
+                     && n == size_arg b && n == size_arg b
+    Erom a           -> addr_size == size_arg a && word_size == n
+    Eram a b c d     -> addr_size == size_arg a && addr_size == size_arg c
+                     && 1 == size_arg b && word_size == size_arg d
+                     && word_size == n
+    Econcat a b      -> n == size_arg a + size_arg b
+    Eslice i j a     -> j <= size_arg a && n == j-i
+    Eselect i a      -> i < size_arg a
+
+aux_eqs sizes ins eqs (id,exp) =
+  if Map.member id eqs then
+    Left $ "\"" ++ id ++ "\" is defined by more than one equation"
+  else if Set.member id ins then
+    Left $ "\"" ++ id ++ "\" is defined by an equation although it is an input"
+  else if not (List.all (\i -> Map.member i sizes) (get_idents exp)) then
+    Left $ "Undefined variable in the equation of \"" ++ id ++ "\""
+  else if not (check_equation sizes (id,exp)) then
+    Left $ "Error in the equation of \"" ++ id ++ "\""
+  else
+    Right $ Map.insert id exp eqs
+
+aux_vars vars (id,n) =
+  if Map.member id vars then
+    Left $ "\"" ++ id ++ "\" is defined several times in VAR"
+  else
+    Right $ Map.insert id n vars
+
+aux_ins vars ins id =
+  if not (Map.member id vars) then
+    Left $ "\"" ++ id ++ "\" is not defined in VAR"
+  else if Set.member id ins then
+    Left $ "\"" ++ id ++ "\" is appears several times in IN"
+  else
+    Right $ Set.insert id ins
+
+aux_outs vars outs id =
+  if not (Map.member id vars) then
+    Left $ "\"" ++ id ++ "\" is not defined in VAR"
+  else if Set.member id outs then
+    Left $ "\"" ++ id ++ "\" is appears several times in OUT"
+  else
+    Right $ Set.insert id outs
+
+aux_args eqs ins (id,_) =
+  if Set.member id ins || Map.member id eqs then
+    Right ()
+  else
+    Left $ "\"" ++ id ++ "\" must be defined by an equation"
+
+verify :: Netlist -> Either String (Map.Map Ident Expression)
+verify net = do
+  sizes <- foldM aux_vars            Map.empty (netlist_var net)
+  ins   <- foldM (aux_ins sizes)     Set.empty (netlist_in net)
+  outs  <- foldM (aux_outs sizes)    Set.empty (netlist_out net)
+  eqs   <- foldM (aux_eqs sizes ins) Map.empty (netlist_eq net)
+  mapM_ (aux_args eqs ins) (netlist_var net)
+  return eqs
+
+module Netlist.Compiler (compile) where
+
+import qualified Data.List as List
+
+import Netlist.Ast
+
+int_of_bool_list :: [Bool] -> Integer
+int_of_bool_list l = aux 0 (List.reverse l)
+  where aux acc []         = acc
+        aux acc (True:xs)  = aux (1+2*acc) xs
+        aux acc (False:xs) = aux (2*acc)   xs
+
+c_arg (ArgVar id) = id
+c_arg (ArgCst v)  = show $ int_of_bool_list v
+
+compile :: Netlist -> String
+compile _ = ""
+

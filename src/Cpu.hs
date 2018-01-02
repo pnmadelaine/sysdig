@@ -15,7 +15,6 @@ cpu = do init_registers
          instr <- decode fetch
          (input1, input2) <- nalu_inputs instr
          (_, z) <- alu instr input1 input2
-         output "z" z
          write_reg (output_reg instr) z
          branch instr
 

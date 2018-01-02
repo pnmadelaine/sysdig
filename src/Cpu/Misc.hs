@@ -27,25 +27,45 @@ multiplex f x =
   in
   bits x >>= \l -> aux 1 0 l
 
--- direction = 1 for left shift
-shift :: (Bt a, Bt b, Wr c, Wr d) => a -> b -> c -> d -> Jazz Wire
-shift dir arith sh x =
-  let aux :: Integer -> Wire -> [Bit] -> Jazz Wire
-      aux _ w [] = return w
-      aux i w (x:xs) = do
-        let t = List.genericReplicate i True
-        let f = List.genericReplicate i False
-        w' <- aux (2*i) w xs
-        n  <- wire_size w
-        y1 <- conc f (slice 0 (n-i) w)
-        y2 <- conc (slice i n w) (mux (select (n-1) w /\ arith) t f)
-        w'' <- mux dir y1 y2
-        mux x w'' w'
-  in
-  do w <- wire x
-     xs <- bits sh
-     aux 1 w xs
+left_shift :: (Wr a, Wr b) => a -> b -> Jazz Wire
+left_shift value sh = do
+  u <- wire value
+  n <- wire_size u
+  let aux :: Integer -> [Bit] -> Jazz Wire
+      aux _ [] = wire u
+      aux i (x:xs) = do
+        u1 <- aux (2*i) xs
+        u2 <- conc (List.genericReplicate i False) (slice 0 (n-i) u1)
+        mux x u2 u1
+  xs <- bits sh
+  aux 1 xs
 
+right_shift :: (Wr a, Wr b) => a -> b -> Jazz Wire
+right_shift value sh = do
+  u <- wire value
+  n <- wire_size u
+  let aux :: Integer -> [Bit] -> Jazz Wire
+      aux _ [] = wire u
+      aux i (x:xs) = do
+        u1 <- aux (2*i) xs
+        u2 <- conc (slice i n u1) (List.genericReplicate i False)
+        mux x u2 u1
+  xs <- bits sh
+  aux 1 xs
+
+right_arith_shift :: (Wr a, Wr b) => a -> b -> Jazz Wire
+right_arith_shift value sh = do
+  u <- wire value
+  n <- wire_size u
+  ext <- select (n-1) u
+  let aux :: Integer -> [Bit] -> Jazz Wire
+      aux _ [] = wire u
+      aux i (x:xs) = do
+        u1 <- aux (2*i) xs
+        u2 <- conc (slice i n u1) (List.genericReplicate i ext)
+        mux x u2 u1
+  xs <- bits sh
+  aux 1 xs
 
 -- signed and unsigned extension
 -- signed n value
@@ -56,7 +76,6 @@ extend s n x = do
   conc xs $ mux a
               (List.genericReplicate n True)
               (List.genericReplicate n False)
-
 
 -- get_ctrl_alu :: Instr -> Jazz (Alu_control)
 
