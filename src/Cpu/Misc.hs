@@ -7,7 +7,7 @@ import Data.List as List
 
 nonZero :: Wr a => a -> Jazz Bit
 nonZero w =
-  let aux :: Bt a => [a] -> Jazz Bit
+  let aux :: [Bit] -> Jazz Bit
       aux [x] = bit x
       aux (x:xs) = x \/ nonZero xs
   in
