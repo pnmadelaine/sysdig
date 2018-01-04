@@ -6,6 +6,7 @@ import Netlist.Jazz
 import Cpu.Misc
 import Cpu.Instr
 import Cpu.Adder
+import Cpu.Mult
 
 -- reads pc and fetches the instruction
 fetch :: Jazz Wire
@@ -23,5 +24,8 @@ branch :: Instr -> Jazz ()
 branch instr = do
   pc <- reg_out "pc"
   (_, pc') <- adder (32 :: Integer, 4 :: Integer) pc False
-  reg_in "pc" pc'
+  state <- reg_out "mult_state"
+  b <- multiplying instr /\ nonZero (xor_wire (5 :: Integer, 31 :: Integer) state)
+  pc'' <- mux b pc pc'
+  reg_in "pc"  pc''
 

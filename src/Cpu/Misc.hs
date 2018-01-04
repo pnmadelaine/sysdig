@@ -16,6 +16,13 @@ nonZero w =
 isZero :: Wr a => a -> Jazz Bit
 isZero x = nonZero x >>= neg
 
+xor_wire :: (Wr a, Wr b) => a -> b -> Jazz Wire
+xor_wire a b = do
+  xs <- bits a
+  ys <- bits b
+  let zs = List.map (\(x, y) -> x <> y) (List.zip xs ys)
+  wire zs
+
 multiplex :: Wr a => (Integer -> Jazz Wire) -> a -> Jazz Wire
 multiplex f x =
   let aux :: Bt a => Integer -> Integer -> [a] -> Jazz Wire

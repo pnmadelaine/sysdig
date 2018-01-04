@@ -14,12 +14,15 @@ cpu :: Jazz ()
 cpu = do init_registers
          instr <- decode fetch
          (input1, input2) <- nalu_inputs instr
-         (_, z) <- alu instr input1 input2
-         write_reg (output_reg instr) z
+         (flags, res) <- alu instr input1 input2
+         write_reg (output_reg instr) res
+         output "instr" fetch
          branch instr
 
 netlist = build_netlist cpu
-netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names ++ ["pc"] } 
+netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names
+                                                       ++ ["pc", "hilo"]
+                   }
 
 main :: IO ()
 main = writeFile "cpu.net" $ show netlist'

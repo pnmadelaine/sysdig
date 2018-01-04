@@ -7,6 +7,7 @@ import Cpu.Memory
 import Cpu.Control
 import Cpu.Nalu
 import Cpu.Adder
+import Cpu.Mult
 
 import Control.Monad (mapM, mapM_)
 import Data.List as List
@@ -82,10 +83,10 @@ alu instr x y = do
                            , op_srl     = right_shift x shamt
                            , op_sra     = right_arith_shift x shamt
                            , op_jr      = wire zero
-                           , op_mfhi    = wire zero
-                           , op_mflo    = wire zero
-                           , op_mult    = wire zero
-                           , op_multu   = wire zero
+                           , op_mfhi    = slice 32 64 (reg_out "hilo")
+                           , op_mflo    = slice 0 32 (reg_out "hilo")
+                           , op_mult    = wire nalu
+                           , op_multu   = wire nalu
                            , op_div     = wire zero
                            , op_divu    = wire zero
                            , op_add     = wire nalu
@@ -102,11 +103,11 @@ alu instr x y = do
                            }
   res <- opcode_mux instr res_mux
   res_zero <- isZero res
-  return ( Alu_flag { carry_out = c_out
-                    , is_zero = res_zero
-                    }
-         , res
-         )
+  let flags = Alu_flag { carry_out = c_out
+                       , is_zero   = res_zero
+                       }
+  mult_update_hilo instr (c_out, res)
+  return (flags, res)
 
 nalu_inputs :: Instr -> Jazz (Wire, Wire)
 nalu_inputs instr = do
@@ -119,6 +120,10 @@ nalu_inputs instr = do
   zero_ext_imm <- conc imm (List.replicate 16 False)
   branch_addr <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   zero <- wire (32 :: Integer, 0 :: Integer)
+  hi' <- mux (isZero (reg_out "mult_state"))
+             ( 32 :: Integer, 0 :: Integer )
+             (slice 32 64 (reg_out "hilo"))
+  mult_inputs <- mult_get_inputs instr rs rt
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 4 :: Integer)
                             , op_beq     = conc pc branch_addr
@@ -145,8 +150,8 @@ nalu_inputs instr = do
                             , op_jr      = conc zero zero
                             , op_mfhi    = conc zero zero
                             , op_mflo    = conc zero zero
-                            , op_mult    = conc zero zero
-                            , op_multu   = conc zero zero
+                            , op_mult    = wire mult_inputs
+                            , op_multu   = wire mult_inputs
                             , op_div     = conc zero zero
                             , op_divu    = conc zero zero
                             , op_add     = conc rs rt

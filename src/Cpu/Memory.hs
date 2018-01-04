@@ -25,8 +25,10 @@ registers_names = ["zero",
                    ]
 
 init_registers :: Jazz ()
-init_registers = mapM_ (\i -> new_reg i 32) $ ["pc"]
-                                           ++ List.tail registers_names
+init_registers = do mapM_ (\i -> new_reg i 32) $ ["pc", "mult_acc"]
+                                              ++ List.tail registers_names
+                    new_reg "hilo" 64
+                    new_reg "mult_state" 5
 
 nth 0 (x:xs) = x
 nth i (x:xs) = nth (i-1) xs
@@ -40,11 +42,10 @@ read_reg x =
   multiplex f x
 
 write_reg :: (Wr a, Wr b) => a -> b -> Jazz ()
-write_reg addr xs =
+write_reg addr xs = do
   let g :: Wr a => Integer -> a -> Integer -> Jazz Wire
       g i x j = if i == j then wire x
                           else reg_out (nth i registers_names)
-  in
   mapM_ (\i -> reg_in (nth i registers_names) (multiplex (g i xs) addr)) [1..31]
 
 output_reg :: Instr -> Jazz Wire
@@ -76,8 +77,8 @@ output_reg instr = do
                             , op_srl     = rd
                             , op_sra     = rd
                             , op_jr      = rt
-                            , op_mfhi    = zero
-                            , op_mflo    = zero
+                            , op_mfhi    = rd
+                            , op_mflo    = rd
                             , op_mult    = zero
                             , op_multu   = zero
                             , op_div     = zero
