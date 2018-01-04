@@ -24,30 +24,6 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- Or  -> alu_force_or, alu_invert_x
 -- Xor -> alu_
 
-handle_ram :: (Wr a, Wr b) => Instr -> a -> b -> Jazz Wire
-handle_ram instr addr dt = do
-  a0 <- conc [False, False] (slice 2 32 addr)
-  a1 <- conc [True,  False] (slice 2 32 addr)
-  a2 <- conc [False, True]  (slice 2 32 addr)
-  a3 <- conc [True,  True]  (slice 2 32 addr)
-
-  d0 <- slice 0  8  dt
-  d1 <- slice 8  16 dt
-  d2 <- slice 16 24 dt
-  d3 <- slice 24 32 dt
-
-  x <- wire (4:: Integer, 0 :: Integer)
-  b0 <- select 0 x
-  b1 <- select 1 x
-  b2 <- select 2 x
-  b3 <- select 3 x
-
-  w0 <- ram a0 b0 a0 d0
-  w1 <- ram a1 b1 a1 d1
-  w2 <- ram a2 b2 a2 d2
-  w3 <- ram a3 b3 a3 d3
-  conc w0 $ conc w1 $ conc w2 w3
-
 alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, Wire)
 alu instr x y = do
   xs <- bits x
@@ -57,8 +33,7 @@ alu instr x y = do
   zero <- wire (32 :: Integer, 0 :: Integer)
   let shamt = instr_shamt instr
   let imm = instr_imm instr
-  ram_out <- handle_ram instr nalu x -- check that x is always rs when writing in ram
-                                     -- optimizer seems to have a problem with this part
+  ram_out <- handle_ram instr nalu (read_reg $ instr_rt instr)
   let res_mux = Opcode_mux { op_j       = wire zero
                            , op_jal     = wire nalu
                            , op_beq     = wire nalu
