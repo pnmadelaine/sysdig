@@ -14,16 +14,18 @@ multiplying instr = isZero (instr_opcode instr) -- TODO: with a multiplexer
 mult_update_hilo :: Instr -> (Bit, Wire) -> Jazz ()
 mult_update_hilo instr (c_out, res) = do
   state <- reg_out "mult_state"
-  hilo  <- reg_out "hilo"
+  hilo  <- conc (reg_out "lo") (reg_out "hi")
   hilo' <- conc (slice 1 32 hilo) $ conc res [c_out]
-  reg_in "hilo" (mux (multiplying instr) hilo' hilo)
+  hilo'' <- mux (multiplying instr) hilo' hilo
+  reg_in "lo" (slice 0 32 hilo'')
+  reg_in "hi" (slice 32 64 hilo'')
 
 
 mult_get_inputs :: (Wr a, Wr b) => Instr -> a -> b -> Jazz Wire
 mult_get_inputs instr rs rt = do
   acc   <- reg_out "mult_acc"
   state <- reg_out "mult_state"
-  hilo  <- reg_out "hilo"
+  hilo  <- conc (reg_out "lo") (reg_out "hi")
 
   x      <- mux (isZero state) rt acc
   (_, y) <- adder (5 :: Integer, 0 :: Integer) state True

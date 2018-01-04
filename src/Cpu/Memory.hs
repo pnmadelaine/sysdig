@@ -25,9 +25,8 @@ registers_names = ["zero",
                    ]
 
 init_registers :: Jazz ()
-init_registers = do mapM_ (\i -> new_reg i 32) $ ["pc", "mult_acc"]
+init_registers = do mapM_ (\i -> new_reg i 32) $ ["pc", "mult_acc", "hi", "lo"]
                                               ++ List.tail registers_names
-                    new_reg "hilo" 64
                     new_reg "mult_state" 5
 
 nth 0 (x:xs) = x

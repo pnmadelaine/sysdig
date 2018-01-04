@@ -83,8 +83,8 @@ alu instr x y = do
                            , op_srl     = right_shift x shamt
                            , op_sra     = right_arith_shift x shamt
                            , op_jr      = wire zero
-                           , op_mfhi    = slice 32 64 (reg_out "hilo")
-                           , op_mflo    = slice 0 32 (reg_out "hilo")
+                           , op_mfhi    = reg_out "hi"
+                           , op_mflo    = reg_out "lo"
                            , op_mult    = wire nalu
                            , op_multu   = wire nalu
                            , op_div     = wire zero
@@ -122,7 +122,7 @@ nalu_inputs instr = do
   zero <- wire (32 :: Integer, 0 :: Integer)
   hi' <- mux (isZero (reg_out "mult_state"))
              ( 32 :: Integer, 0 :: Integer )
-             (slice 32 64 (reg_out "hilo"))
+             (reg_out "hi")
   mult_inputs <- mult_get_inputs instr rs rt
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 4 :: Integer)
