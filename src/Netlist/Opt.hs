@@ -3,7 +3,6 @@ module Netlist.Opt where
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Data.Map.Lazy ((!))
 import Data.Maybe (fromJust)
 import Data.Functor ((<$>))
 
@@ -21,11 +20,15 @@ clear netmap =
   let exps = netmap_eqs netmap in
   let f :: Set.Set Ident -> Set.Set Ident
       f s =
+        let foo (ArgVar id) = [id]
+            foo (ArgCst v)  = []
+        in
         let aux id =
               case Map.lookup id exps of
-                Nothing         -> Set.empty
-                Just (Ereg id') -> Set.singleton id'
-                Just exp        -> Set.fromList (get_idents exp)
+                Nothing                 -> Set.empty
+                Just (Ereg id')         -> Set.singleton id'
+                Just (Eram ra we wa dt) -> Set.fromList (foo ra ++ foo we ++ foo wa ++ foo dt)
+                Just exp                -> Set.fromList (get_idents exp)
         in
         Set.unions $ [s, netmap_out netmap] ++ (Set.toList (Set.map aux s))
   in
