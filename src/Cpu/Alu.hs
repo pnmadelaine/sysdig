@@ -100,7 +100,7 @@ nalu_inputs instr = do
              (reg_out "hi")
   mult_inputs <- mult_get_inputs instr rs rt
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
-                            , op_jal     = conc pc (32 :: Integer, 4 :: Integer)
+                            , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
                             , op_beq     = conc pc branch_addr
                             , op_bne     = conc pc branch_addr
                             , op_addi    = conc rs sign_ext_imm
