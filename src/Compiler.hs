@@ -20,7 +20,7 @@ handle_netlist name = do
   let netlist = read_netlist code
   case schedule netlist of
     Left err      -> putStrLn err
-    Right net_sch -> compile net_sch
+    Right net_sch -> compile net_sch (-1) []
 
 main :: IO ()
 main = do

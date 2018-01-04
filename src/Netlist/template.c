@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int print(int a){
-	printf("%d\n", a);
+int print(unsigned int a){
+	printf("%u\n", a);
 }
