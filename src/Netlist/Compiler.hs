@@ -103,7 +103,7 @@ handle_eq szs (id, exp) = case exp of
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
   let sz = szs Map.! id
-  in "\nprintf("%s", "++id++": "++); print("++id++" & "++(mask 0 sz)++");"
+  in "\nprintf(\"%s\", "++id++": ); print("++id++" & "++(mask 0 sz)++");"
 
 -- kompilator :: Netlist -> String
 kompilator netl n ins =
