@@ -27,17 +27,11 @@ handle_var l = aux "" l
         aux acc ((id, _):types) = aux (acc++"\nunsigned long int "++id++" = 0;") types
 
 handle_init :: Map.Map Ident Integer -> [(Ident, Value)] -> String
-handle_init szs ins = ""
---   let aux i = do putStr (i++"("++(show $ szs Map.! i)++"):")
---                  hFlush stdout
---                  s <- getLine
---                  let v = bool_list_of_string s
---                  return (i, v)
---   in let aux2 i =  (aux i)
---   in do
---   putStrLn "---- Input ----"
---   concat $ List.map (\(id, v) -> "\n"++id++" = "++(string_of_bool_list v)++";")
---                     (List.map (\id -> aux2 id) ins)
+handle_init szs ins = aux [] ins
+  where aux acc [] = acc
+        aux acc ((id, v):idvs) = (if ((toInteger $ List.length v) == (szs Map.! id))
+                                 then aux (acc++"\n"++id++" = 0b"++(show $ string_of_bool_list v)++";") idvs
+                                 else aux (acc++"\n/* error : bad size for "++id++" : 0b"++(show $ string_of_bool_list v)) [])
 
 reg_id :: String -> String
 reg_id s = "_reg"++s++"_"
@@ -73,10 +67,17 @@ getsize szs arg = case arg of
 -- ..001(<- pos j)1..1(<-pos i)00..
 mask :: Integer -> Integer -> String
 mask i j = aux [] 64
-  where aux acc 0 = "0b"++acc
+  where aux acc 0 = acc
         aux acc k = if i > j || k > j || k < i
                     then aux (acc++"0") (k-1)
                     else aux (acc++"1") (k-1)
+
+masko :: Argument -> Integer -> Integer -> String
+masko arg i j = case arg of
+                  ArgVar id -> "("++id++" & 0b"++(mask i j)++")"
+                  ArgCst v ->
+                              let result = List.map (\(b1, b2) -> b1 && b2) $ List.zip (bool_list_of_string (mask i j)) v
+                              in "0b"++(string_of_bool_list result)
 
 handle_eq :: Map.Map Ident Integer -> (Ident, Expression) -> String
 handle_eq szs (id, exp) = case exp of
@@ -91,7 +92,8 @@ handle_eq szs (id, exp) = case exp of
                             Emux a b c        -> "\n"++id++" = ("++(getvalue a)++" & 1 == 1) ? "
                                                ++(getvalue b)++" : "++(getvalue c)++";"
                             Econcat a b       -> "\n"++id++" = ("++(getvalue a)++" << "++(show $ getsize szs b)
-                                              ++") | ("++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
+                                              ++") | "++(masko b 0 (pred $ getsize szs b))++";"
+                                              -- ++") | (0b"++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
                             Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
                             Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
                             Eram ra we wa d   -> "\n"++id++" = _ram["++(getvalue ra)++"];"
@@ -103,9 +105,9 @@ handle_eq szs (id, exp) = case exp of
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
   let sz = szs Map.! id
-  in "\nprintf(\"%s\", "++id++": ); print("++id++" & "++(mask 0 sz)++");"
+  in "\nprintf(\"%s\", \""++id++": \"); print("++(masko (ArgVar id) 0 sz)++");"
 
--- kompilator :: Netlist -> String
+kompilator :: Netlist -> Integer -> [(Ident, Value)] -> String
 kompilator netl n ins =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
@@ -122,7 +124,7 @@ kompilator netl n ins =
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
--- compile :: Netlist -> IO ()
+compile :: Netlist -> Integer -> [(Ident, Value)] -> IO ()
 compile ntlst n in_values = do
     content <- readFile "../../../src/Netlist/template.c"
     let newContent = content++(kompilator ntlst n in_values)
@@ -130,11 +132,10 @@ compile ntlst n in_values = do
         writeFile "test.c" newContent
 
 -- [TODO]
--- optimisation sur les types
--- saisie des variables d'entrée par fenêtre de prompt (handle_init)
+-- ROM par chargement de fichier opérationnelle
 -- ajout d'options à la compilation
--- {????} vérifications à faire à la compilation
--- {osef} Integer / Int en Haskell
+-- saisie des variables d'entrée par fenêtre de prompt (handle_init) (2/2)
+-- optimisation sur les types
 
 -- [OK]
 -- rendre le compilateur utilisable (écriture à la suite d'un fichier C faisant office de template)
@@ -143,3 +144,7 @@ compile ntlst n in_values = do
 -- passer de bool list à int pour tracer sa mère
 -- RAM/ROM
 -- optimisation sur les registres
+-- saisie des variables d'entrée par fenêtre de prompt (handle_init) (1/2)
+
+-- {useless} vérifications à faire à la compilation
+-- {osef} Integer / Int en Haskell
