@@ -39,8 +39,8 @@ nalu_control instr = do
   ctrl_def  <- wire [ False, False, False, False, False, False ]
   let ctrl_mux = Opcode_mux { op_j       = wire ctrl_def
                             , op_jal     = wire ctrl_add
-                            , op_beq     = wire ctrl_xor
-                            , op_bne     = wire ctrl_xor
+                            , op_beq     = wire ctrl_add
+                            , op_bne     = wire ctrl_add
                             , op_addi    = wire ctrl_add
                             , op_addiu   = wire ctrl_add
                             , op_slti    = wire ctrl_sub

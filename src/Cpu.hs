@@ -17,7 +17,7 @@ cpu = do init_registers
          (flags, res) <- alu instr input1 input2
          write_reg (output_reg instr) res
          output "instr" fetch
-         branch instr res
+         branch instr (flags, res)
 
 netlist = build_netlist cpu
 netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names

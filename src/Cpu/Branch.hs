@@ -10,6 +10,7 @@ import Cpu.Adder
 import Cpu.Mult
 import Cpu.Memory
 import Cpu.Control
+import Cpu.Alu
 
 -- reads pc and fetches the instruction
 fetch :: Jazz Wire
@@ -21,104 +22,61 @@ fetch = do
   x3 <- rom $ conc [True, True] addr
   conc x0 $ conc x1 $ conc x2 x3
 
-
 -- updates the pc at the end of the cycle
-branch :: Wr a  => Instr -> a -> Jazz ()
-branch instr res = do
+branch :: Instr -> (Alu_flag, Wire) -> Jazz ()
+branch instr (flags, res) = do
   let addr = instr_addr instr
   let imm  = instr_imm  instr
+  branch_addr <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   pc <- reg_out "pc"
-  let pc_mux = Opcode_mux { op_j       = wire pc
-                          , op_jal     = wire pc
-                          , op_beq     = wire res
-                          , op_bne     = wire res
-                          , op_addi    = wire pc
-                          , op_addiu   = wire pc
-                          , op_slti    = wire pc
-                          , op_sltiu   = wire pc
-                          , op_andi    = wire pc
-                          , op_ori     = wire pc
-                          , op_lui     = wire pc
-                          , op_lw      = wire pc
-                          , op_lbu     = wire pc
-                          , op_lhu     = wire pc
-                          , op_sb      = wire pc
-                          , op_sh      = wire pc
-                          , op_sw      = wire pc
-                          , op_ll      = wire pc
-                          , op_sc      = wire pc
-
-                          , op_sll     = wire pc
-                          , op_srl     = wire pc
-                          , op_sra     = wire pc
-                          , op_jr      = wire pc
-                          , op_mfhi    = wire pc
-                          , op_mflo    = wire pc
-                          , op_mult    = wire pc
-                          , op_multu   = wire pc
-                          , op_div     = wire pc
-                          , op_divu    = wire pc
-                          , op_add     = wire pc
-                          , op_addu    = wire pc
-                          , op_sub     = wire pc
-                          , op_subu    = wire pc
-                          , op_and     = wire pc
-                          , op_or      = wire pc
-                          , op_nor     = wire pc
-                          , op_slt     = wire pc
-                          , op_sltu    = wire pc
-
-                          , op_nop     = wire pc
-                          }
-  x <- opcode_mux instr pc_mux
-  (_, pc') <- adder (32 :: Integer, 4 :: Integer) x False
-  jump_addr <- conc [False, False] $ conc addr (slice 28 32 pc')
-
+  (_, pc_inc) <- adder pc (32 :: Integer, 4 :: Integer) False
+  let pc_branch = res
+  jump_addr <- conc [False, False] $ conc addr (slice 28 32 pc_inc)
   state <- reg_out "mult_state"
-  b <- nonZero (xor_wire (5 :: Integer, 31 :: Integer) state)
+  continue_mult <- nonZero (xor_wire (5 :: Integer, 31 :: Integer) state)
   let branch_mux = Opcode_mux { op_j       = wire jump_addr
                               , op_jal     = wire jump_addr
-                              , op_beq     = wire pc'
-                              , op_bne     = wire pc'
-                              , op_addi    = wire pc'
-                              , op_addiu   = wire pc'
-                              , op_slti    = wire pc'
-                              , op_sltiu   = wire pc'
-                              , op_andi    = wire pc'
-                              , op_ori     = wire pc'
-                              , op_lui     = wire pc'
-                              , op_lw      = wire pc'
-                              , op_lbu     = wire pc'
-                              , op_lhu     = wire pc'
-                              , op_sb      = wire pc'
-                              , op_sh      = wire pc'
-                              , op_sw      = wire pc'
-                              , op_ll      = wire pc'
-                              , op_sc      = wire pc'
+                              , op_beq     = mux (not_equal flags) pc_inc pc_branch 
+                              , op_bne     = mux (not_equal flags) pc_branch pc_inc
+                              , op_addi    = wire pc_inc
+                              , op_addiu   = wire pc_inc
+                              , op_slti    = wire pc_inc
+                              , op_sltiu   = wire pc_inc
+                              , op_andi    = wire pc_inc
+                              , op_ori     = wire pc_inc
+                              , op_lui     = wire pc_inc
+                              , op_lw      = wire pc_inc
+                              , op_lbu     = wire pc_inc
+                              , op_lhu     = wire pc_inc
+                              , op_sb      = wire pc_inc
+                              , op_sh      = wire pc_inc
+                              , op_sw      = wire pc_inc
+                              , op_ll      = wire pc_inc
+                              , op_sc      = wire pc_inc
 
-                              , op_sll     = wire pc'
-                              , op_srl     = wire pc'
-                              , op_sra     = wire pc'
+                              , op_sll     = wire pc_inc
+                              , op_srl     = wire pc_inc
+                              , op_sra     = wire pc_inc
                               , op_jr      = read_reg (instr_rs instr)
-                              , op_mfhi    = wire pc'
-                              , op_mflo    = wire pc'
-                              , op_mult    = mux b pc pc'
-                              , op_multu   = wire pc'
-                              , op_div     = wire pc'
-                              , op_divu    = wire pc'
-                              , op_add     = wire pc'
-                              , op_addu    = wire pc'
-                              , op_sub     = wire pc'
-                              , op_subu    = wire pc'
-                              , op_and     = wire pc'
-                              , op_or      = wire pc'
-                              , op_nor     = wire pc'
-                              , op_slt     = wire pc'
-                              , op_sltu    = wire pc'
+                              , op_mfhi    = wire pc_inc
+                              , op_mflo    = wire pc_inc
+                              , op_mult    = mux continue_mult pc pc_inc
+                              , op_multu   = wire pc_inc
+                              , op_div     = wire pc_inc
+                              , op_divu    = wire pc_inc
+                              , op_add     = wire pc_inc
+                              , op_addu    = wire pc_inc
+                              , op_sub     = wire pc_inc
+                              , op_subu    = wire pc_inc
+                              , op_and     = wire pc_inc
+                              , op_or      = wire pc_inc
+                              , op_nor     = wire pc_inc
+                              , op_slt     = wire pc_inc
+                              , op_sltu    = wire pc_inc
 
-                              , op_nop     = wire pc'
+                              , op_nop     = wire pc_inc
                               }
-  pc'' <- opcode_mux instr branch_mux
-  reg_in "pc" pc''
+  new_pc <- opcode_mux instr branch_mux
+  reg_in "pc" new_pc
 
 

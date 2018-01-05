@@ -14,6 +14,7 @@ import Data.List as List
 
 data Alu_flag = Alu_flag { carry_out :: Bit
                          , is_zero   :: Bit
+                         , not_equal :: Bit
                          }
 
 -- Liste des controles valant true pour chaque opération
@@ -78,8 +79,10 @@ alu instr x y = do
                            }
   res <- opcode_mux instr res_mux
   res_zero <- isZero res
+  neq <- nonZero (xor_wire x y)
   let flags = Alu_flag { carry_out = c_out
                        , is_zero   = res_zero
+                       , not_equal = neq
                        }
   mult_update_hilo instr (c_out, res)
   return (flags, res)
@@ -99,10 +102,11 @@ nalu_inputs instr = do
              ( 32 :: Integer, 0 :: Integer )
              (reg_out "hi")
   mult_inputs <- mult_get_inputs instr rs rt
+  (_, pc_inc) <- adder (reg_out "pc") (32 :: Integer, 4 :: Integer) False
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
-                            , op_beq     = conc pc branch_addr
-                            , op_bne     = conc pc branch_addr
+                            , op_beq     = conc pc_inc branch_addr
+                            , op_bne     = conc pc_inc branch_addr
                             , op_addi    = conc rs sign_ext_imm
                             , op_addiu   = conc rs sign_ext_imm
                             , op_slti    = conc rs sign_ext_imm
