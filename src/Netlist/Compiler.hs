@@ -24,7 +24,7 @@ bool_list_of_string = aux []
 handle_var :: [(Ident, Integer)] -> String
 handle_var l = aux "" l
   where aux acc []              = acc
-        aux acc ((id, _):types) = aux (acc++"\nunsigned int "++id++" = 0;") types
+        aux acc ((id, _):types) = aux (acc++"\nunsigned long int "++id++" = 0;") types
 
 handle_init :: Map.Map Ident Integer -> [(Ident, Value)] -> String
 handle_init szs ins = ""
@@ -52,7 +52,7 @@ reg_selection lst = aux [] lst
 reg_init :: [Ident] -> String
 reg_init l = aux "" l
   where aux acc []       = acc
-        aux acc (id:ids) = aux (acc++"\nunsigned int "++(reg_id id)++" = 0;") ids
+        aux acc (id:ids) = aux (acc++"\nunsigned long int "++(reg_id id)++" = 0;") ids
 
 reg_save :: [Ident] -> String
 reg_save l = aux "" l
@@ -69,10 +69,10 @@ getsize szs arg = case arg of
                     ArgVar i -> szs Map.! i
                     ArgCst v -> toInteger $ List.length v
 
--- assuming sizeof(int) = 4 bytes
+-- assuming sizeof(long int) = 8 bytes
 -- ..001(<- pos j)1..1(<-pos i)00..
 mask :: Integer -> Integer -> String
-mask i j = aux [] 32
+mask i j = aux [] 64
   where aux acc 0 = "0b"++acc
         aux acc k = if i > j || k > j || k < i
                     then aux (acc++"0") (k-1)
@@ -103,7 +103,7 @@ handle_eq szs (id, exp) = case exp of
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
   let sz = szs Map.! id
-  in "\nprint("++id++" & "++(mask 0 sz)++");"
+  in "\nprintf("%s", "++id++": "); print("++id++" & "++(mask 0 sz)++");"
 
 -- kompilator :: Netlist -> String
 kompilator netl n ins =
@@ -116,7 +116,7 @@ kompilator netl n ins =
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
-    ++ (if n < 0 then "\nwhile (1) {" else "\nfor (int _i_ = 0; _i_ < "++(show n)++"; ++_i_){")
+    ++ (if n < 0 then "\nwhile (1) {" else "\nfor (unsigned long int _i_ = 0; _i_ < "++(show n)++"; ++_i_){")
     ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
     ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
     ++ (reg_save regs)
@@ -130,6 +130,7 @@ compile ntlst n in_values = do
         writeFile "test.c" newContent
 
 -- [TODO]
+-- optimisation sur les types
 -- saisie des variables d'entrée par fenêtre de prompt (handle_init)
 -- ajout d'options à la compilation
 -- {????} vérifications à faire à la compilation
