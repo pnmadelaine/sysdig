@@ -1,37 +1,27 @@
-module Cpu where
+module Main where
 
 import qualified Data.List as List
 
 import Netlist.Ast
 import Netlist.Jazz
+import Cpu.Instr
 import Cpu.Misc
 import Cpu.Alu
 import Cpu.Memory
 import Cpu.Branch
 
-f = Bit (ArgCst [False])
-t = Bit (ArgCst [True])
-
-ctrl = Alu_control { alu_enable_carry = t
-                   , alu_carry_in     = f
-                   , alu_enable_xor   = t
-                   , alu_enable_and   = f
-                   , alu_invert_x     = f
-                   , alu_invert_y     = f
-                   }
-
+cpu :: Jazz ()
 cpu = do init_registers
          instr <- decode fetch
-         write_reg (List.replicate 5 False) (List.replicate 32 True)
-         branch instr
+         (flags, res) <- alu_output instr
+         write_reg (output_reg instr) res
+         branch instr res
 
-foo = do xs <- bits $ input "x" 4
-         ys <- bits $ input "y" 4
-         (_, zs) <- alu ctrl xs ys
-         output "z" zs
+netlist = build_netlist cpu
+netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names
+                                                       ++ ["pc", "hi", "lo"]
+                   }
 
-foo' = do xs <- bits $ input "x" 4
-          output "y" xs
-
-netlist = build_netlist foo
+main :: IO ()
+main = writeFile "cpu.net" $ show netlist'
 

@@ -13,8 +13,6 @@ import Netlist.Typer
 import Netlist.Scheduler
 import Netlist.Parser
 
-import qualified Cpu
-
 handle_netlist name = do
   code <- readFile name
   let netlist = read_netlist code

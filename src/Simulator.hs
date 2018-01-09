@@ -57,12 +57,12 @@ bool_list_of_string = aux []
         aux acc ('1':xs) = aux (True:acc)  xs
         aux acc ('0':xs) = aux (False:acc) xs
 
-read_ram :: FilePath -> IO Ram
-read_ram filepath = do s  <- readFile filepath
-                       let values = List.map bool_list_of_string $ lines s
-                       let index  = [0..(List.genericLength values - 1)]
-                       let l = zip index values
-                       return $ Map.fromList l
+read_ram_file :: FilePath -> IO Ram
+read_ram_file filepath = do s  <- readFile filepath
+                            let values = List.map bool_list_of_string $ words s
+                            let index  = [0..(List.genericLength values - 1)]
+                            let l = zip index (List.reverse $ values)
+                            return $ Map.fromList l
 
 read_netlist_in :: Netlist -> IO (Map.Map Ident Value)
 read_netlist_in net =
@@ -90,11 +90,11 @@ get_n ((NumberOfSteps n):_) = n
 get_n (_:os) = get_n os
 
 get_ram [] = return Map.empty
-get_ram ((LoadRam path):_) = read_ram path
-get_ram (_:os) = get_ram os
+get_ram ((LoadRam path):_) = read_ram_file path
+get_ram (_:os) = get_rom os
 
 get_rom [] = return Map.empty
-get_rom ((LoadRom path):_) = read_ram path
+get_rom ((LoadRom path):_) = read_ram_file path
 get_rom (_:os) = get_rom os
 
 run_simulation options net_sch = do
@@ -109,9 +109,12 @@ run_simulation options net_sch = do
 handle_netlist options name = do
   code <- readFile (name ++ ".net")
   let netlist = read_netlist code
-  case schedule netlist of
-    Left err      -> putStrLn err
-    Right net_sch -> run_simulation options net_sch
+  case verify netlist of
+    Left err -> putStrLn err
+    Right _ ->
+      case schedule netlist of
+        Left err      -> putStrLn err
+        Right net_sch -> run_simulation options net_sch
 
 stripThisDamnedExtension :: String -> String
 stripThisDamnedExtension [] = ""

@@ -50,6 +50,8 @@ class Wr a where
   bits :: a -> Jazz [Bit]
   wire :: a -> Jazz Wire
 
+wire_size :: Wr a => a -> Jazz Integer
+wire_size x = wire x >>= (\(Wire(n,_)) -> return n)
 
 input :: Ident -> Integer -> Jazz Wire
 input id n = do s <- get
@@ -76,24 +78,23 @@ output id x = do Wire (n, a) <- wire x
 
 new_reg :: Ident -> Integer -> Jazz ()
 new_reg id n = do s <- get
-                  let s' = Netmap { netmap_eqs   = netmap_eqs s
-                                  , netmap_ids   = netmap_ids s
-                                  , netmap_in    = netmap_in s
-                                  , netmap_out   = Set.insert id (netmap_out s)
-                                  , netmap_sizes = Map.insert id n (netmap_sizes s)
-                                  }
-                  put s'
+                  put $ Netmap { netmap_eqs   = netmap_eqs s
+                               , netmap_ids   = netmap_ids s
+                               , netmap_in    = netmap_in s
+                               , netmap_out   = netmap_out s
+                               , netmap_sizes = Map.insert id n (netmap_sizes s)
+                               }
 
 reg_out :: Ident -> Jazz Wire
 reg_out id = do s <- get
                 let exp = Ereg id
-                let n = (netmap_sizes s) ! id
+                let n = arg_size (ArgVar id) s
                 id' <- create_wire exp
                 return $ Wire (n, ArgVar id')
 
 reg_in :: Wr a => Ident -> a -> Jazz ()
-reg_in id x = do Wire (n, ArgVar id') <- wire x
-                 let exp = Earg (ArgVar id')
+reg_in id x = do Wire (n, a) <- wire x
+                 let exp = Earg a
                  s <- get
                  let s' = Netmap { netmap_eqs   = Map.insert id exp (netmap_eqs s)
                                  , netmap_ids   = Map.insert exp id (netmap_ids s)
@@ -106,8 +107,6 @@ reg_in id x = do Wire (n, ArgVar id') <- wire x
 neg :: Bt a => a -> Jazz Bit
 neg x = do Bit a <- bit x
            let exp = Enot a
-           s <- get
-           let n = arg_size a s
            id <- create_wire exp
            return $ Bit (ArgVar id)
 
@@ -115,8 +114,6 @@ binop :: (Bt a, Bt b) => BinOp -> a -> b -> Jazz Bit
 binop op x y = do Bit a <- bit x
                   Bit b <- bit y
                   let exp = Ebinop op a b
-                  s <- get
-                  let n = arg_size a s
                   id <- create_wire exp
                   return $ Bit (ArgVar id)
 
@@ -130,14 +127,12 @@ x /\ y = binop And x y
 x <> y = binop Xor x y
 
 mux :: (Bt a, Wr b, Wr c) => a -> b -> c -> Jazz Wire
-mux a xs ys = do Bit a <- bit a
-                 Wire (_, ArgVar id') <- wire xs
-                 Wire (_, y) <- wire ys
-                 s <- get
-                 let n = (netmap_sizes s) ! id'
-                 let exp = Emux a (ArgVar id') y
-                 id <- create_wire exp
-                 return $ Wire (n, ArgVar id)
+mux x y z = do Bit a <- bit x
+               Wire (n, b) <- wire y
+               Wire (_, c) <- wire z
+               let exp = Emux a b c
+               id <- create_wire exp
+               return $ Wire (n, ArgVar id)
 
 rom :: Wr a => a -> Jazz Wire
 rom x = do Wire (_, a) <- wire x
@@ -186,6 +181,22 @@ instance Bt Integer where
 instance Wr Wire where
   bits (Wire (n, x)) = mapM (\i -> select i (Wire (n, x))) [0..n-1]
   wire x = return x
+
+wire_of_integer :: (Integer, Integer) -> Wire
+wire_of_integer (n, i) =
+  let aux 0 _ = []
+      aux n 0 = List.genericReplicate n False
+      aux n i = (mod i 2 == 1):(aux (n-1) (div i 2))
+  in
+  Wire (n, ArgCst $ aux n i)
+
+wire_of_bool_list :: [Bool] -> Wire
+wire_of_bool_list l = Wire (List.genericLength l, ArgCst l)
+
+instance Wr (Integer, Integer) where
+  bits x = bits (wire_of_integer x)
+  wire x = return (wire_of_integer x)
+
 instance Wr a => Wr (Jazz a) where
   bits x = x >>= bits
   wire x = x >>= wire

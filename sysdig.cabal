@@ -45,9 +45,10 @@ executable optimizer
    default-language:    Haskell2010
 
 executable generator
-  main-is:             Gen.hs
+  main-is:             Cpu.hs
   other-modules:       Netlist.Ast, Netlist.Jazz, Netlist.Show, Netlist.Typer
-                     , Cpu, Cpu.Misc, Cpu.Alu, Cpu.Memory, Cpu.Branch
+                     , Cpu.Misc, Cpu.Alu, Cpu.Memory, Cpu.Branch, Cpu.Adder
+                     , Cpu.Control, Cpu.Nalu, Cpu.Instr, Cpu.Mult
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.11, containers, mtl
   hs-source-dirs:      src
