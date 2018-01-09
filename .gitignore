@@ -26,3 +26,4 @@ cabal.project.local
 simulator
 generator
 optimizer
+compiler
