@@ -25,26 +25,27 @@ data Alu_flag = Alu_flag { carry_out :: Bit
 -- Or  -> alu_force_or, alu_invert_x
 -- Xor -> alu_
 
-alu :: (Wr a, Wr b) => Instr -> a -> b -> Jazz (Alu_flag, Wire)
-alu instr x y = do
-  xs <- bits x
-  ys <- bits y
-  ctrl <- nalu_control instr
-  (c_out, nalu) <- nalu ctrl xs ys
-  zero <- wire (32 :: Integer, 0 :: Integer)
+alu_output :: Instr -> Jazz (Alu_flag, Wire)
+alu_output instr = do
+  (x, y)            <- alu_inputs instr
+  ctrl              <- nalu_control instr
+  (c_out, nalu_out) <- nalu ctrl x y
+
+  zero      <- wire (32 :: Integer, 0 :: Integer)
   let shamt = instr_shamt instr
-  let imm = instr_imm instr
-  ram_out <- handle_ram instr nalu (read_reg $ instr_rt instr)
+  let imm   = instr_imm instr
+  ram_out   <- handle_ram instr nalu_out (read_reg $ instr_rt instr)
+
   let res_mux = Opcode_mux { op_j       = wire zero
-                           , op_jal     = wire nalu
-                           , op_beq     = wire nalu
-                           , op_bne     = wire nalu
-                           , op_addi    = wire nalu
-                           , op_addiu   = wire nalu
+                           , op_jal     = wire nalu_out
+                           , op_beq     = wire nalu_out
+                           , op_bne     = wire nalu_out
+                           , op_addi    = wire nalu_out
+                           , op_addiu   = wire nalu_out
                            , op_slti    = wire zero
                            , op_sltiu   = wire zero
-                           , op_andi    = wire nalu
-                           , op_ori     = wire nalu
+                           , op_andi    = wire nalu_out
+                           , op_ori     = wire nalu_out
                            , op_lui     = conc (List.replicate 16 False) imm
                            , op_lw      = wire ram_out
                            , op_lbu     = conc (slice 0 8 ram_out) (24 :: Integer, 0 :: Integer)
@@ -61,34 +62,36 @@ alu instr x y = do
                            , op_jr      = wire zero
                            , op_mfhi    = reg_out "hi"
                            , op_mflo    = reg_out "lo"
-                           , op_mult    = wire nalu
-                           , op_multu   = wire nalu
+                           , op_mult    = wire nalu_out
+                           , op_multu   = wire nalu_out
                            , op_div     = wire zero
                            , op_divu    = wire zero
-                           , op_add     = wire nalu
-                           , op_addu    = wire nalu
-                           , op_sub     = wire nalu
-                           , op_subu    = wire nalu
-                           , op_and     = wire nalu
-                           , op_or      = wire nalu
-                           , op_nor     = wire nalu
+                           , op_add     = wire nalu_out
+                           , op_addu    = wire nalu_out
+                           , op_sub     = wire nalu_out
+                           , op_subu    = wire nalu_out
+                           , op_and     = wire nalu_out
+                           , op_or      = wire nalu_out
+                           , op_nor     = wire nalu_out
                            , op_slt     = wire zero
                            , op_sltu    = wire zero
 
                            , op_nop     = wire zero
                            }
-  res <- opcode_mux instr res_mux
-  res_zero <- isZero res
-  neq <- nonZero (xor_wire x y)
+  res       <- opcode_mux instr res_mux
+  res_zero  <- isZero res
+  neq       <- nonZero (xor_wire x y)
   let flags = Alu_flag { carry_out = c_out
                        , is_zero   = res_zero
                        , not_equal = neq
                        }
+
   mult_update_hilo instr (c_out, res)
+
   return (flags, res)
 
-nalu_inputs :: Instr -> Jazz (Wire, Wire)
-nalu_inputs instr = do
+alu_inputs :: Instr -> Jazz (Wire, Wire)
+alu_inputs instr = do
   rs <- read_reg (instr_rs instr)
   rd <- read_reg (instr_rd instr)
   rt <- read_reg (instr_rt instr)
@@ -96,12 +99,12 @@ nalu_inputs instr = do
   let imm = instr_imm instr
   sign_ext_imm <- conc imm (List.replicate 16 (select 15 imm))
   zero_ext_imm <- conc imm (List.replicate 16 False)
-  branch_addr <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
+  branch_addr  <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   zero <- wire (32 :: Integer, 0 :: Integer)
-  hi' <- mux (isZero (reg_out "mult_state"))
+  hi'  <- mux (isZero (reg_out "mult_state"))
              ( 32 :: Integer, 0 :: Integer )
              (reg_out "hi")
-  mult_inputs <- mult_get_inputs instr rs rt
+  mult_inputs <- mult_get_inputs instr
   (_, pc_inc) <- adder (reg_out "pc") (32 :: Integer, 4 :: Integer) False
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 8 :: Integer)

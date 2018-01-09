@@ -74,6 +74,7 @@ right_arith_shift value sh = do
   xs <- bits sh
   aux 1 xs
 
+{-
 -- signed and unsigned extension
 -- signed n value
 extend :: (Bt a, Wr b) => a -> Integer -> b -> Jazz Wire
@@ -83,12 +84,5 @@ extend s n x = do
   conc xs $ mux a
               (List.genericReplicate n True)
               (List.genericReplicate n False)
-
--- get_ctrl_alu :: Instr -> Jazz (Alu_control)
-
--- instr ram_output alu_output alu_flags
--- write_output :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Alu_flag -> Jazz ()
-
--- instr data addr
--- memory :: (Bt a, Bt b) => Instr -> [a] -> [b] -> Jazz [Bit]
+-}
 

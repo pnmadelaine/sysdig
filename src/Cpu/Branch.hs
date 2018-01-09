@@ -23,10 +23,13 @@ fetch = do
   conc x0 $ conc x1 $ conc x2 x3
 
 -- updates the pc at the end of the cycle
-branch :: Instr -> (Alu_flag, Wire) -> Jazz ()
-branch instr (flags, res) = do
+branch :: Instr -> Wire -> Jazz ()
+branch instr res = do
   let addr = instr_addr instr
   let imm  = instr_imm  instr
+  rs <- read_reg (instr_rs instr)
+  rt <- read_reg (instr_rt instr)
+  not_equal <- nonZero (xor_wire rs rt)
   branch_addr <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   pc <- reg_out "pc"
   (_, pc_inc) <- adder pc (32 :: Integer, 4 :: Integer) False
@@ -36,8 +39,8 @@ branch instr (flags, res) = do
   continue_mult <- nonZero (xor_wire (5 :: Integer, 31 :: Integer) state)
   let branch_mux = Opcode_mux { op_j       = wire jump_addr
                               , op_jal     = wire jump_addr
-                              , op_beq     = mux (not_equal flags) pc_inc pc_branch 
-                              , op_bne     = mux (not_equal flags) pc_branch pc_inc
+                              , op_beq     = mux not_equal pc_inc pc_branch
+                              , op_bne     = mux not_equal pc_branch pc_inc
                               , op_addi    = wire pc_inc
                               , op_addiu   = wire pc_inc
                               , op_slti    = wire pc_inc

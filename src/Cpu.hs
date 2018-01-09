@@ -13,11 +13,9 @@ import Cpu.Branch
 cpu :: Jazz ()
 cpu = do init_registers
          instr <- decode fetch
-         (input1, input2) <- nalu_inputs instr
-         (flags, res) <- alu instr input1 input2
+         (flags, res) <- alu_output instr
          write_reg (output_reg instr) res
-         output "instr" fetch
-         branch instr (flags, res)
+         branch instr res
 
 netlist = build_netlist cpu
 netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names

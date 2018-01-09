@@ -90,8 +90,8 @@ fullalu ctrl a b c = do
   s <- ( (a1 <> b1 <> c) /\ (a1 \/ (alu_disable_and ctrl)) ) <> (alu_force_or ctrl)
   return (r, s)
 
-nalu :: (Bt a, Bt b) => Nalu_control -> [a] -> [b] -> Jazz (Bit, [Bit])
-nalu ctrl xs ys =
+nalu :: (Wr a, Wr b) => Nalu_control -> a -> b -> Jazz (Bit, [Bit])
+nalu ctrl x y =
   let aux :: (Bt a, Bt b, Bt c) => Nalu_control -> [a] -> [b] -> c -> Jazz (Bit, [Bit])
       aux _ [] [] c = do
         x <- bit c
@@ -101,5 +101,7 @@ nalu ctrl xs ys =
         (c_out, zs) <- aux ctrl xs ys c'
         return (c_out, z:zs)
   in
-  do aux ctrl xs ys (alu_carry_in ctrl)
+  do xs <- bits x
+     ys <- bits y
+     aux ctrl xs ys (alu_carry_in ctrl)
 
