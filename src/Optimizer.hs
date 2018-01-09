@@ -20,18 +20,16 @@ handle_netlist name = do
     Left err -> putStrLn err
     Right _  -> putStrLn "ok"
 
-stripThisDamnedExtension :: String -> String
-stripThisDamnedExtension [] = ""
-stripThisDamnedExtension str = List.reverse (aux (List.reverse str))
-  where aux [] = []
-        aux ('.':cs) = cs
-        aux (c:cs) = c:(aux cs)
-
 main :: IO ()
 main = do
   files <- getArgs
   if null files then
     putStrLn "Error: no netlist file specified"
   else do
-    handle_netlist (stripThisDamnedExtension (List.head files))
+    let netlist_path = List.head files
+    case stripExtension ".net" netlist_path of
+      Nothing   ->
+        putStrLn "Bad extension, use .net"
+      Just name ->
+        handle_netlist name
 
