@@ -13,14 +13,14 @@ check_equation sizes (id, exp) =
                    ArgCst v -> fromIntegral (List.length v)
                    ArgVar i -> sizes ! i
   in
-  let n = sizes ! id in
+  let n = sizes ! id in -- TODO: handle errors
   case exp of
     Earg a           -> n == size_arg a
     Ereg r           -> n == sizes ! r
     Enot a           -> n == size_arg a
     Ebinop op a b    -> n == size_arg a && n == size_arg b
     Emux a b c       -> 1 == size_arg a
-                     && n == size_arg b && n == size_arg b
+                     && n == size_arg b && n == size_arg c
     Erom a           -> addr_size == size_arg a && word_size == n
     Eram a b c d     -> addr_size == size_arg a && addr_size == size_arg c
                      && 1 == size_arg b && word_size == size_arg d
