@@ -43,7 +43,7 @@ alu_output instr = do
                            , op_addi    = wire nalu_out
                            , op_addiu   = wire nalu_out
                            , op_slti    = wire zero
-                           , op_sltiu   = wire zero
+                           , op_sltiu   = conc [neg c_out] (31 :: Integer, 0 :: Integer)
                            , op_andi    = wire nalu_out
                            , op_ori     = wire nalu_out
                            , op_lui     = conc (List.replicate 16 False) imm
@@ -74,7 +74,7 @@ alu_output instr = do
                            , op_or      = wire nalu_out
                            , op_nor     = wire nalu_out
                            , op_slt     = wire zero
-                           , op_sltu    = wire zero
+                           , op_sltu    = conc [neg c_out] (31 :: Integer, 0 :: Integer)
 
                            , op_nop     = wire zero
                            }
