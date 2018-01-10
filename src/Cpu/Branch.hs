@@ -35,8 +35,8 @@ branch instr res = do
   (_, pc_inc) <- adder pc (32 :: Integer, 4 :: Integer) False
   let pc_branch = res
   jump_addr <- conc [False, False] $ conc addr (slice 28 32 pc_inc)
-  state <- reg_out "mult_state"
-  continue_mult <- nonZero (xor_wire (5 :: Integer, 31 :: Integer) state)
+  state <- reg_out "state"
+  last_state <- isZero $ xor_wire (6 :: Integer, 32 :: Integer) state
   let branch_mux = Opcode_mux { op_j       = wire jump_addr
                               , op_jal     = wire jump_addr
                               , op_beq     = mux not_equal pc_inc pc_branch
@@ -63,10 +63,10 @@ branch instr res = do
                               , op_jr      = read_reg (instr_rs instr)
                               , op_mfhi    = wire pc_inc
                               , op_mflo    = wire pc_inc
-                              , op_mult    = mux continue_mult pc pc_inc
-                              , op_multu   = wire pc_inc
-                              , op_div     = wire pc_inc
-                              , op_divu    = wire pc_inc
+                              , op_mult    = mux last_state pc_inc pc
+                              , op_multu   = mux last_state pc_inc pc
+                              , op_div     = mux last_state pc_inc pc
+                              , op_divu    = mux last_state pc_inc pc
                               , op_add     = wire pc_inc
                               , op_addu    = wire pc_inc
                               , op_sub     = wire pc_inc

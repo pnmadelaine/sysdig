@@ -26,10 +26,15 @@ nalu_control_from_wire w =
                , alu_invert_y     = l !! 5
                }
 
--- enable_carry carry_in force_or invert_x invert_y
 
 nalu_control :: Instr -> Jazz Nalu_control
 nalu_control instr = do
+                   -- enable_carry
+                   --        carry_in
+                   --               force_or
+                   --                      disable_and
+                   --                             invert_x
+                   --                                    invert_y
   ctrl_add  <- wire [ True,  False, False, True,  False, False ]
   ctrl_sub  <- wire [ True,  True,  False, True,  False, True  ]
   ctrl_and  <- wire [ False, False, False, False, False, True  ]
@@ -65,8 +70,8 @@ nalu_control instr = do
                             , op_mflo    = wire ctrl_def
                             , op_mult    = wire ctrl_add
                             , op_multu   = wire ctrl_add
-                            , op_div     = wire ctrl_def
-                            , op_divu    = wire ctrl_def
+                            , op_div     = wire ctrl_sub
+                            , op_divu    = wire ctrl_sub
                             , op_add     = wire ctrl_add
                             , op_addu    = wire ctrl_add
                             , op_sub     = wire ctrl_sub

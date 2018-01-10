@@ -64,8 +64,8 @@ alu_output instr = do
                            , op_mflo    = reg_out "lo"
                            , op_mult    = wire nalu_out
                            , op_multu   = wire nalu_out
-                           , op_div     = wire zero
-                           , op_divu    = wire zero
+                           , op_div     = wire nalu_out
+                           , op_divu    = wire nalu_out
                            , op_add     = wire nalu_out
                            , op_addu    = wire nalu_out
                            , op_sub     = wire nalu_out
@@ -86,8 +86,7 @@ alu_output instr = do
                        , not_equal = neq
                        }
 
-  mult_update_hilo instr (c_out, res)
-
+  update_state instr (c_out, res)
   return (flags, res)
 
 alu_inputs :: Instr -> Jazz (Wire, Wire)
@@ -101,10 +100,8 @@ alu_inputs instr = do
   zero_ext_imm <- conc imm (List.replicate 16 False)
   branch_addr  <- conc [False, False] $ conc imm (List.replicate 14 (select 15 imm))
   zero <- wire (32 :: Integer, 0 :: Integer)
-  hi'  <- mux (isZero (reg_out "mult_state"))
-             ( 32 :: Integer, 0 :: Integer )
-             (reg_out "hi")
-  mult_inputs <- mult_get_inputs instr
+  hi <- reg_out "hi"
+  lo <- reg_out "lo"
   (_, pc_inc) <- adder (reg_out "pc") (32 :: Integer, 4 :: Integer) False
   let ctrl_mux = Opcode_mux { op_j       = conc zero zero
                             , op_jal     = conc pc (32 :: Integer, 8 :: Integer)
@@ -132,10 +129,10 @@ alu_inputs instr = do
                             , op_jr      = conc zero zero
                             , op_mfhi    = conc zero zero
                             , op_mflo    = conc zero zero
-                            , op_mult    = wire mult_inputs
-                            , op_multu   = wire mult_inputs
-                            , op_div     = conc zero zero
-                            , op_divu    = conc zero zero
+                            , op_mult    = conc hi rt
+                            , op_multu   = conc hi rt
+                            , op_div     = conc (conc [select 31 lo] (slice 0 31 hi)) rt
+                            , op_divu    = conc (conc [select 31 lo] (slice 0 31 hi)) rt
                             , op_add     = conc rs rt
                             , op_addu    = conc rs rt
                             , op_sub     = conc rs rt

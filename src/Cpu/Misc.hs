@@ -5,6 +5,9 @@ import Netlist.Jazz
 import Control.Monad (mapM, mapM_)
 import Data.List as List
 
+zero32 = wire (32 :: Integer, 0 :: Integer)
+zero8 = wire (8 :: Integer, 0 :: Integer)
+
 nonZero :: Wr a => a -> Jazz Bit
 nonZero w =
   let aux :: [Bit] -> Jazz Bit
@@ -15,6 +18,14 @@ nonZero w =
 
 isZero :: Wr a => a -> Jazz Bit
 isZero x = nonZero x >>= neg
+
+comp_unsigned :: (Wr a, Wr b) => a -> b -> Jazz Bit
+comp_unsigned x y = do
+  let aux [] [] = bit False
+      aux (x:xs) (y:ys) = (neg x /\ y ) \/ (x /\ y /\ aux xs ys)
+  xs <- bits x
+  ys <- bits y
+  aux xs ys
 
 xor_wire :: (Wr a, Wr b) => a -> b -> Jazz Wire
 xor_wire a b = do

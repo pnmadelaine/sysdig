@@ -19,7 +19,7 @@ cpu = do init_registers
 
 netlist = build_netlist cpu
 netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names
-                                                       ++ ["pc", "hi", "lo"]
+                                                       ++ ["pc", "hi", "lo", "state"]
                    }
 
 main :: IO ()
