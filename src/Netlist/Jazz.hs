@@ -6,7 +6,6 @@ module Netlist.Jazz where
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Data.Map.Lazy ((!))
 
 import Data.Functor.Identity (Identity)
 
