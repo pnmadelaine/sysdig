@@ -126,7 +126,7 @@ kompilator netl n ins =
 
 compile :: Netlist -> Integer -> [(Ident, Value)] -> IO ()
 compile ntlst n in_values = do
-    content <- readFile "../../../src/Netlist/template.c"
+    content <- readFile "src/Netlist/template.c"
     let newContent = content++(kompilator ntlst n in_values)
     when (length newContent > 0) $
         writeFile "test.c" newContent

@@ -148,6 +148,5 @@ alu_inputs instr = do
   inputs <- opcode_mux instr ctrl_mux
   input1 <- slice 0 32 inputs
   input2 <- slice 32 64 inputs
-
   return (input1, input2)
 
