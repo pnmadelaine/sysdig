@@ -123,9 +123,6 @@ main = do
     putStrLn "Error: no netlist file specified"
   else do
     let netlist_path = List.head files
-    case stripExtension ".net" netlist_path of
-      Nothing   ->
-        putStrLn "Bad extension, use .net"
-      Just name ->
-        handle_netlist options name
+    let name = dropExtension netlist_path
+    handle_netlist options name
 
