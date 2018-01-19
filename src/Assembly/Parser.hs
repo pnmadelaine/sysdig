@@ -3,7 +3,9 @@ module Assembly.Parser where
 import Assembly.Ast
 
 import qualified Data.List as List
+import qualified Data.Map as Map
 
+import Text.Parsec
 import Text.Parsec.String
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language
@@ -33,20 +35,22 @@ convert_imm :: Int -> Imm -- poids faible à gauche
 convert_imm 0 = [False]
 convert_imm 1 = [True]
 convert_imm n =
-  [n mod 2] ++ convert_imm (n/2) 
+  [aux (mod n 2)] ++ (convert_imm (div n 2))
+  where aux 1 = True
+        aux 0 = False
   
 extend_list :: Int -> Bool -> [Bool] -> [Bool] -- extends list to length desired by adding b at the end
 extend_list n b l = if List.length l < n then
-										extend_list n b (l ++ [b])
-									else
-									  l
-									  
+                      extend_list n b (l ++ [b])
+                    else
+                      l
+
 add_1 :: Imm -> Imm
 add_1 [] = [] --erreur imm trop gros
 add_1 n = let h = List.head n in
-					let t = List.tail n in
-					if h then
-						[False] ++ (add_1 t)
+          let t = List.tail n in
+          if h then
+            [False] ++ (add_1 t)
 					else
 						[True] ++ t
 						
@@ -55,7 +59,7 @@ not_imm [] = []
 not_imm n = [not (List.head n)] ++ (not_imm $ List.tail n)
 
 neg_imm :: Imm -> Imm
-neg_im n = add_1 $ not_imm n
+neg_imm n = add_1 $ not_imm n
 
 
 ---gestion des registres---
@@ -79,7 +83,7 @@ registers_names = ["zero",
 register :: Parser Reg
 register = do try (symbol "$")
               r <- ident
-              aux $ List.elemIndex r regnames
+              return $ aux $ List.elemIndex r registers_names
    where aux (Just n) = convert_imm n
          aux Nothing  = error "tocard !" --error
          
@@ -88,7 +92,7 @@ register = do try (symbol "$")
 
 chb :: Int -> Int -> Assembly.Ast.Opcode --convert_hex_binary creates an opcode of 6 bits from hexadecimal representation
 chb x1 x2 = let l1 = List.reverse $ extend_list 2 False $ convert_imm x1 in
-						l1 ++ $  List.reverse $ extend_list 4 False $ convert_imm x2
+						l1 ++ ( List.reverse $ extend_list 4 False $ convert_imm x2)
 
 r_instr :: [String]
 r_instr = ["add",
@@ -105,7 +109,7 @@ r_instr = ["add",
 					 "subu"
 					]
 					
-r_funct :: [Assembly.Ast.Opcode]
+r_funct :: [Funct]
 r_funct = [chb 2 0,
            chb 2 1,
            chb 2 4,
@@ -119,6 +123,9 @@ r_funct = [chb 2 0,
            chb 2 2,
            chb 2 3
           ]
+          
+r_corres :: Map.Map String Funct
+r_corres = Map.fromList (List.zip r_instr r_funct)
 					
 i_instr :: [String]					
 i_instr = ["addi",
@@ -140,7 +147,7 @@ i_instr = ["addi",
 					 "sw"
           ]
           
-i_opcode :: [Assembly.Ast.Opcode]
+i_opcode :: [Opcode]
 i_opcode = [chb 0 8,
             chb 0 9,
             chb 0 12,
@@ -165,7 +172,7 @@ j_instr = ["j",
 					 "jal"
           ]
           
-j_opcode :: [Assembly.Ast.Opcode]
+j_opcode :: [Opcode]
 j_opcode = [chb 0 2,
             chb 0 3
            ]
