@@ -6,9 +6,16 @@ type Shamt =   [Bool]
 type Funct =   [Bool]
 type Imm =     [Bool]
 type Address = [Bool]
+type Label = String
 
-type Rexpr = (Opcode, Reg, Reg, Reg, Shamt, Funct)
-type Iexpr = (Opcode, Reg, Reg, Imm)
-type Jexpr = (Opcode, Address)
+-- Opcode : little endian
+-- Reg : little endian
+
+data Instr = Rexpr Opcode Reg Reg Reg Shamt Funct
+           | Iexpr Opcode Reg Reg Imm
+           | Jexpr Opcode Label
+           | Lexpr Label
+     deriving Show
 
 
+type Prog = [Instr]
