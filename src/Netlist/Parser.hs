@@ -3,7 +3,7 @@ module Netlist.Parser where
 import Netlist.Ast
 import qualified Data.List as List
 
-import Text.Parsec hiding (spaces)
+import Text.Parsec
 import Text.Parsec.String
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language
@@ -37,9 +37,6 @@ binop = try (symbol "OR"   >> return Or)
     <|> try (symbol "XOR"  >> return Xor)
     <|> try (symbol "AND"  >> return And)
     <|> try (symbol "NAND" >> return Nand)
-
-spaces :: Parser ()
-spaces = skipMany1 space
 
 ident_with_size :: Parser (Ident, Integer)
 ident_with_size = do id <- ident
