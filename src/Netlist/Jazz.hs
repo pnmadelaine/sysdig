@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+--{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Netlist.Jazz where
