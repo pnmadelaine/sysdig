@@ -64,9 +64,8 @@ read_assembly code = parse parse_prog "assembly" code
 
 ---gestion d'un programme---
 parse_prog :: Parser Prog
-parse_prog = do many space
-                p <-many parse_instr
-                many space
+parse_prog = do spaces
+                p <- many (parse_instr)
                 eof
                 return p
 
@@ -151,6 +150,7 @@ parse_j_instr = do op <- try (symbol "jal") <|> try (symbol "j")
 
 int :: Parser Int --TODO gérer les négatifs--
 int = do s <- many1 digit
+         spaces
          return (read s)
 
 convert_imm :: Int -> Imm -- poids faible à gauche convertit la valeur absolue d'un nombre en binaire
