@@ -82,6 +82,11 @@ parse_instr = parse_i_instr
                  symbol ","
                  s <- register
                  return $ Rexpr (chb 0 0) s reg_zero d reg_zero (chb 2 0)
+          <|> do try (symbol "li")
+                 t <- register
+                 symbol ","
+                 i <- immediate 16
+                 return $ Iexpr (chb 0 8) reg_zero t i
           <|> lab
 
 ---gestion des labels---
@@ -136,11 +141,15 @@ parse_i_instr = do op <- choice (List.map (try . symbol) i_instr)
                    let opcode = i_corres ! op
                    t <- register
                    symbol ","
-                   s <- register
-                   symbol ","
-                   let aux op | op == "beq" || op == "bne" = do l <- ident
+                   let aux op | op == "beq" || op == "bne" = do s <- register
+                                                                symbol ","
+                                                                l <- ident
                                                                 return $ Bexpr opcode s t l
-                       aux _ = do i <- immediate 16
+                       aux "lui" = do i <- immediate 16
+                                      return $ Iexpr opcode reg_zero t i
+                       aux _ = do s <- register
+                                  symbol ","
+                                  i <- immediate 16
                                   return $ Iexpr opcode s t i
                    aux op
 
