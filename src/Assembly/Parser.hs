@@ -38,9 +38,8 @@ natural = Tok.natural lexer
 
 get_labels :: Int -> Prog -> Map.Map String Int
 get_labels n [] = Map.empty
-get_labels n l = aux (List.head l) (List.tail l)
-     where aux (Lexpr l) p =  Map.insert l n (get_labels n p)
-           aux _ p = get_labels (n+1) p
+get_labels n ((Lexpr l):xs) = Map.insert l n (get_labels n xs)
+get_labels n (_:xs) = get_labels (n+1) xs
 
 update_jumps :: Map.Map String Int -> Int -> Prog -> Prog
 update_jumps m n [] = []
@@ -67,7 +66,7 @@ read_assembly code = parse parse_prog "assembly" code
 ---gestion d'un programme---
 parse_prog :: Parser Prog
 parse_prog = do spaces
-                p <- many (parse_instr)
+                p <- many parse_instr
                 eof
                 return p
 
@@ -226,7 +225,7 @@ registers_names = ["zero",
 
 
 register :: Parser Reg --petit-endian
-register = do try (symbol "$")
+register = do symbol "$"
               r <- ident
               return $ aux $ List.elemIndex r registers_names
    where aux (Just n) = extend_list 5 $ convert_imm n
