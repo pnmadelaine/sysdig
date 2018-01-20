@@ -14,6 +14,7 @@ type Label = String
 data Instr = Rexpr Opcode Reg Reg Reg Shamt Funct
            | Iexpr Opcode Reg Reg Imm
            | Jexpr Opcode Label
+           | Bexpr Opcode Reg Reg Label
            | Lexpr Label
            | Jump Opcode Address
 

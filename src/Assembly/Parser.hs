@@ -47,6 +47,8 @@ update_jumps m [] = []
 update_jumps m l = do let aux (Jexpr opc l) p = do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
                                                    [j] ++ (update_jumps m p)
                           aux (Lexpr l) p = update_jumps m p --on a plus besoin des labels
+                          aux (Bexpr opc s t l) p = do let b = Iexpr opc s t $ extend_list 16 $ convert_imm (m ! l)
+                                                       [b] ++ (update_jumps m p)
                           aux i p = [i] ++ (update_jumps m p)
                       aux (List.head l) (List.tail l)
 
@@ -132,12 +134,15 @@ parse_r_instr = do op <- choice (List.map (try . symbol) r_instr)
 parse_i_instr :: Parser Instr
 parse_i_instr = do op <- choice (List.map (try . symbol) i_instr)
                    let opcode = i_corres ! op
-                   rt <- register
+                   t <- register
                    symbol ","
-                   rs <- register
+                   s <- register
                    symbol ","
-                   i <- immediate 16
-                   return $ Iexpr opcode rs rt i
+                   let aux op | op == "beq" || op == "bne" = do l <- ident
+                                                                return $ Bexpr opcode s t l
+                       aux _ = do i <- immediate 16
+                                  return $ Iexpr opcode s t i
+                   aux op
 
 ---gestion des instructions de type J---
 parse_j_instr :: Parser Instr
