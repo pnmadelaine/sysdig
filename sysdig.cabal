@@ -56,7 +56,7 @@ executable generator
 
 executable assembly
    main-is:             Assembly.hs
-   other-modules:       Assembly.Ast, Assembly.Parser
+   other-modules:       Assembly.Ast, Assembly.Parser, Assembly.Compiler
    -- other-extensions:    
    build-depends:       base >=4.8 && <4.11, filepath, parsec, containers
    hs-source-dirs:      src

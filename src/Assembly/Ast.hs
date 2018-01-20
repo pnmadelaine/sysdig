@@ -15,7 +15,7 @@ data Instr = Rexpr Opcode Reg Reg Reg Shamt Funct
            | Iexpr Opcode Reg Reg Imm
            | Jexpr Opcode Label
            | Lexpr Label
-     deriving Show
+           | Jump Opcode Address
 
 
 type Prog = [Instr]

@@ -9,11 +9,16 @@ import Data.List as List
 
 import Assembly.Ast
 import Assembly.Parser
+import Assembly.Compiler
 
+handle_assembly :: String -> IO ()
 handle_assembly name = do
   code <- readFile name
   case read_assembly code of
-    Right val ->  putStrLn $ show val
+    Right p -> do let up = understand_assembly p
+                  --putStrLn $ print_prog up
+                  let bname = List.take ( (List.length name) -2 ) name
+                  writeFile bname (print_prog up)
     Left err -> error ("Parsing error: " ++ show err)
   
 

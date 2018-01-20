@@ -32,7 +32,33 @@ symbol  = Tok.symbol lexer
 ident   = Tok.identifier lexer
 natural = Tok.natural lexer
 
----fonction appelée---
+---                  ---
+--- CALCUL DES JUMPS ---
+---                  ---
+
+get_labels :: Int -> Prog -> Map.Map String Int
+get_labels n [] = Map.empty
+get_labels n l = aux (List.head l) (List.tail l)
+     where aux (Lexpr l) p =  Map.insert l n (get_labels n p)
+           aux _ p = get_labels (n+1) p
+
+update_jumps :: Map.Map String Int -> Prog -> Prog
+update_jumps m [] = []
+update_jumps m l = do let aux (Jexpr opc l) p = do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
+                                                   [j] ++ (update_jumps m p)
+                          aux (Lexpr l) p = update_jumps m p --on a plus besoin des labels
+                          aux i p = [i] ++ (update_jumps m p)
+                      aux (List.head l) (List.tail l)
+
+understand_assembly :: Prog -> Prog
+understand_assembly p = do let m = get_labels 0 p
+                           update_jumps m p
+
+---         ---
+--- PARSING ---
+---         ---
+
+---fonction appelée pour avoir un programme---
 read_assembly :: String -> Either ParseError Prog
 read_assembly code = parse parse_prog "assembly" code
 
@@ -64,11 +90,18 @@ lab = do l <- ident
          return $ Lexpr l
 
 ---gestion des instructions de type R---
+choisir :: [String] -> Parser String
+choisir [] = error "liste vide"
+choisir [a] = symbol a
+choisir l = try (symbol (List.head l))
+         <|> choisir (List.tail l)
+
 reg_zero :: Reg
 reg_zero = [False, False, False, False, False]
 
+
 parse_r_instr :: Parser Instr
-parse_r_instr = do op <- choice (List.map (try . symbol) r_instr)
+parse_r_instr = do op <- choisir r_instr
                    let op = List.init op
                    let opcode = chb 0 0
                    let funct = r_corres ! op
@@ -104,7 +137,7 @@ parse_r_instr = do op <- choice (List.map (try . symbol) r_instr)
 
 ---gestion des instructions de type I---
 parse_i_instr :: Parser Instr
-parse_i_instr = do op <- choice (List.map (try . symbol) i_instr)
+parse_i_instr = do op <- choisir i_instr---choice (List.map (symbol) i_instr)
                    let op = List.init op
                    let opcode = i_corres ! op
                    rt <- register
