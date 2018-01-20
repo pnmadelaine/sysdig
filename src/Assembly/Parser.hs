@@ -146,7 +146,7 @@ parse_j_instr = do op <- try (symbol "jal") <|> try (symbol "j")
                    let opcode = j_corres ! op
                    l <- ident
                    return $ Jexpr opcode l
-                   
+
 ---gestion des immediates---
 
 int :: Parser Int --TODO gérer les négatifs--
@@ -160,7 +160,7 @@ convert_imm n =
   [aux (mod n 2)] ++ (convert_imm (div n 2))
   where aux 0 = False
         aux _ = True
-  
+
 extend_list :: Int -> [Bool] -> [Bool] -- extends list to length desired by adding b at the end
 extend_list n l = if List.length l < n then
                       extend_list n (l ++ [False])
@@ -175,7 +175,7 @@ add_1 n = let h = List.head n in
             [False] ++ (add_1 t)
           else
             [True] ++ t
-            
+
 not_imm :: Imm -> Imm
 not_imm [] = []
 not_imm n = [not (List.head n)] ++ (not_imm $ List.tail n)
@@ -192,7 +192,7 @@ immediate n = do v <- int
 
 
 ---gestion des registres---
-  
+
 registers_names :: [String]
 registers_names = ["zero",
                    "at",
@@ -215,7 +215,7 @@ register = do try (symbol "$")
               return $ aux $ List.elemIndex r registers_names
    where aux (Just n) = extend_list 5 $ convert_imm n
          aux Nothing  = error "Not a register"
-         
+
 
 ---calcul des opcodes et funct---
 
@@ -244,7 +244,7 @@ r_instr = ["addu",
            "mfhi",
            "mflo"
           ]
-          
+
 r_funct :: [Funct]
 r_funct = [chb 2 1,
            chb 2 0,
@@ -266,11 +266,11 @@ r_funct = [chb 2 1,
            chb 1 0,
            chb 1 2
           ]
-          
+
 r_corres :: Map.Map String Funct
 r_corres = Map.fromList (List.zip r_instr r_funct)
-          
-i_instr :: [String]          
+
+i_instr :: [String]
 i_instr = ["addiu",
            "addi",
            "andi",
@@ -289,7 +289,7 @@ i_instr = ["addiu",
            "sh",
            "sw"
           ]
-          
+
 i_opcode :: [Opcode]
 i_opcode = [chb 0 9,
             chb 0 8,
@@ -312,12 +312,12 @@ i_opcode = [chb 0 9,
 
 i_corres :: Map.Map String Funct
 i_corres = Map.fromList (List.zip i_instr i_opcode)
- 
-j_instr :: [String]           
+
+j_instr :: [String]
 j_instr = ["jal",
            "j"
           ]
-          
+
 j_opcode :: [Opcode]
 j_opcode = [ chb 0 3
            , chb 0 2
