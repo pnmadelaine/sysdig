@@ -162,10 +162,12 @@ parse_j_instr = do op <- try (symbol "jal") <|> try (symbol "j")
 
 ---gestion des immediates---
 
-int :: Parser Int --TODO gérer les négatifs--
-int = do s <- many1 digit
+int :: Parser Int
+int = do sign <- optionMaybe (symbol "-")
+         s <- many1 digit
          spaces
-         return (read s)
+         case sign of Nothing -> return (read s)
+                      Just _ -> return (-(read s))
 
 convert_imm :: Int -> Imm -- poids faible à gauche convertit la valeur absolue d'un nombre en binaire
 convert_imm 0 = [False]
