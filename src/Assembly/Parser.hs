@@ -73,9 +73,9 @@ parse_prog = do many space
 
 ---gestion d'une instruction arbitraire---
 parse_instr :: Parser Instr
-parse_instr = try parse_r_instr
-          <|> try parse_i_instr
-          <|> try parse_j_instr
+parse_instr = parse_i_instr
+          <|> parse_r_instr --ordre important sinon add a l'avantage sur addi
+          <|> parse_j_instr
           <|> do try (symbol "move")
                  d <- register
                  symbol ","
@@ -90,19 +90,13 @@ lab = do l <- ident
          return $ Lexpr l
 
 ---gestion des instructions de type R---
-choisir :: [String] -> Parser String
-choisir [] = error "liste vide"
-choisir [a] = symbol a
-choisir l = try (symbol (List.head l))
-         <|> choisir (List.tail l)
 
 reg_zero :: Reg
 reg_zero = [False, False, False, False, False]
 
 
 parse_r_instr :: Parser Instr
-parse_r_instr = do op <- choisir r_instr
-                   let op = List.init op
+parse_r_instr = do op <- choice (List.map (try . symbol) r_instr)
                    let opcode = chb 0 0
                    let funct = r_corres ! op
                    let aux "jr" = do s <- register
@@ -137,8 +131,7 @@ parse_r_instr = do op <- choisir r_instr
 
 ---gestion des instructions de type I---
 parse_i_instr :: Parser Instr
-parse_i_instr = do op <- choisir i_instr---choice (List.map (symbol) i_instr)
-                   let op = List.init op
+parse_i_instr = do op <- choice (List.map (try . symbol) i_instr)
                    let opcode = i_corres ! op
                    rt <- register
                    symbol ","
@@ -149,8 +142,7 @@ parse_i_instr = do op <- choisir i_instr---choice (List.map (symbol) i_instr)
 
 ---gestion des instructions de type J---
 parse_j_instr :: Parser Instr
-parse_j_instr = do op <- try (symbol "jal") <|> (symbol "j")
-                   let op = List.init op
+parse_j_instr = do op <- try (symbol "jal") <|> try (symbol "j")
                    let opcode = j_corres ! op
                    l <- ident
                    return $ Jexpr opcode l
