@@ -21,7 +21,7 @@ def = Tok.LanguageDef { Tok.commentStart    = ""
                       , Tok.identLetter     = letter <|> digit <|> char '_'
                       , Tok.opStart         = anyToken
                       , Tok.opLetter        = anyToken
-                      , Tok.reservedNames   = r_instr ++ i_instr ++ j_instr ++ ["move"]
+                      , Tok.reservedNames   = r_instr ++ i_instr ++ j_instr ++ ["move","li"]
                       , Tok.reservedOpNames = []
                       , Tok.caseSensitive   = True
                       }
@@ -42,19 +42,19 @@ get_labels n l = aux (List.head l) (List.tail l)
      where aux (Lexpr l) p =  Map.insert l n (get_labels n p)
            aux _ p = get_labels (n+1) p
 
-update_jumps :: Map.Map String Int -> Prog -> Prog
-update_jumps m [] = []
-update_jumps m l = do let aux (Jexpr opc l) p = do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
-                                                   [j] ++ (update_jumps m p)
-                          aux (Lexpr l) p = update_jumps m p --on a plus besoin des labels
-                          aux (Bexpr opc s t l) p = do let b = Iexpr opc s t $ extend_list 16 $ convert_imm (m ! l)
-                                                       [b] ++ (update_jumps m p)
-                          aux i p = [i] ++ (update_jumps m p)
-                      aux (List.head l) (List.tail l)
+update_jumps :: Map.Map String Int -> Int -> Prog -> Prog
+update_jumps m n [] = []
+update_jumps m n l = do let aux (Jexpr opc l) p = do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
+                                                     [j] ++ (update_jumps m (n+1) p)
+                            aux (Lexpr l) p = update_jumps m n p --on a plus besoin des labels
+                            aux (Bexpr opc s t l) p = do let b = Iexpr opc s t $ extend_list 16 $ convert_imm ( (m ! l) - n -1) -- attention PC = PC(n) + 1 + addr
+                                                         [b] ++ (update_jumps m (n+1) p)
+                            aux i p = [i] ++ (update_jumps m (n+1) p)
+                        aux (List.head l) (List.tail l)
 
 understand_assembly :: Prog -> Prog
 understand_assembly p = do let m = get_labels 0 p
-                           update_jumps m p
+                           update_jumps m 0 p
 
 ---         ---
 --- PARSING ---
