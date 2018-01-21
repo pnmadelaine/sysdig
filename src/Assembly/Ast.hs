@@ -18,5 +18,4 @@ data Instr = Rexpr Opcode Reg Reg Reg Shamt Funct
            | Lexpr Label
            | Jump Opcode Address
 
-
 type Prog = [Instr]

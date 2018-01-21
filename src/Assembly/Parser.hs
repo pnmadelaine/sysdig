@@ -32,28 +32,6 @@ symbol  = Tok.symbol lexer
 ident   = Tok.identifier lexer
 natural = Tok.natural lexer
 
----                  ---
---- CALCUL DES JUMPS ---
----                  ---
-
-get_labels :: Int -> Prog -> Map.Map String Int
-get_labels n [] = Map.empty
-get_labels n ((Lexpr l):xs) = Map.insert l n (get_labels n xs)
-get_labels n (_:xs) = get_labels (n+1) xs
-
-update_jumps :: Map.Map String Int -> Int -> Prog -> Prog
-update_jumps m n [] = []
-update_jumps m n ((Jexpr opc l):p)=     do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
-                                           j : (update_jumps m (n+1) p)
-update_jumps m n ((Lexpr l):p) =        update_jumps m n p --on a plus besoin des labels
-update_jumps m n ((Bexpr opc s t l):p)= do let b = Iexpr opc s t $ extend_list 16 $ convert_imm ( (m ! l) - n -1) -- attention PC = PC(n) + 1 + addr
-                                           b : (update_jumps m (n+1) p)
-update_jumps m n (i:p) =                i : (update_jumps m (n+1) p)
-
-understand_assembly :: Prog -> Prog
-understand_assembly p = do let m = get_labels 0 p
-                           update_jumps m 0 p
-
 ---         ---
 --- PARSING ---
 ---         ---
@@ -167,19 +145,12 @@ int = do sign <- optionMaybe (symbol "-")
          case sign of Nothing -> return (read s)
                       Just _ -> return (-(read s))
 
-convert_imm :: Int -> Imm -- poids faible à gauche convertit la valeur absolue d'un nombre en binaire
-convert_imm 0 = [False]
-convert_imm 1 = [True]
-convert_imm n =
-  (aux (mod n 2)) : (convert_imm (div n 2))
-  where aux 0 = False
-        aux _ = True
-
-extend_list :: Int -> [Bool] -> [Bool] -- extends list to length desired by adding b at the end
-extend_list n l = if List.length l < n then
-                      extend_list n (l ++ [False])
-                    else
-                      l
+convert_imm :: Int -> Int -> Imm -- poids faible à gauche convertit la valeur absolue d'un nombre en binaire
+convert_imm n x =
+  if x >= 0 then aux n x
+            else aux n (2 ^ n - x)
+  where aux 0 _ = []
+        aux n x = (mod x 2 == 1):(aux (n-1) (div x 2))
 
 add_1 :: Imm -> Imm
 add_1 [] = error "Immediate too big"
@@ -200,9 +171,9 @@ neg_imm n = add_1 $ not_imm n
 immediate :: Int -> Parser Imm
 immediate n = do v <- int
                  if v >= 0 then
-                   return $ extend_list n $ convert_imm v
+                   return $ convert_imm n v
                  else
-                   return $ neg_imm $ extend_list n $ convert_imm v
+                   return $ convert_imm n v
 
 
 ---gestion des registres---
@@ -227,15 +198,15 @@ register :: Parser Reg --petit-endian
 register = do symbol "$"
               r <- ident
               return $ aux $ List.elemIndex r registers_names
-   where aux (Just n) = extend_list 5 $ convert_imm n
+   where aux (Just n) = convert_imm 5 n
          aux Nothing  = error "Not a register"
 
 
 ---calcul des opcodes et funct---
 
 chb :: Int -> Int -> Assembly.Ast.Opcode --convert_hex_binary creates an opcode of 6 bits from hexadecimal representation
-chb x1 x2 = let l1 = extend_list 2 $ convert_imm x1 in
-            (extend_list 4 $ convert_imm x2) ++ l1
+chb x1 x2 = let l1 = convert_imm 2 x1 in
+            (convert_imm 4 x2) ++ l1
 
 r_instr :: [String]
 r_instr = ["addu",
