@@ -16,7 +16,6 @@ handle_assembly name = do
   code <- readFile name
   case read_assembly code of
     Right p -> do let up = understand_assembly p
-                  --putStrLn $ print_prog up
                   let bname = List.take ( (List.length name) -2 ) name
                   writeFile bname (print_prog up)
     Left err -> error ("Parsing error: " ++ show err)
