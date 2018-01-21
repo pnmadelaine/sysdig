@@ -86,12 +86,14 @@ day:
 
   beq $t4,$a2,week  
   sb $t4,$zero,4
-  jr $t5
+  addi $ra,$t5,1
+  jr $ra
 
 week:
   li $t4,0  
   sb $t4,$zero,4
-  jr $t5
+  addi $ra,$t5,1
+  jr $ra
   
 nd_30:
   beq $t3,$k0,month

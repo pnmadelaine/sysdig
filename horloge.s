@@ -84,7 +84,8 @@ day:
   mfhi $t4
   
   addiu $t3,$t3,1
-  jr $t5
+  addi $ra,$t5,1
+  jr $ra
  
 nd_28:
   divu $t3,$v0
