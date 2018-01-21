@@ -1,4 +1,4 @@
-module Graph where
+module Netlist.Graph where
 
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map

@@ -1,7 +1,7 @@
 module Netlist.Scheduler (schedule) where
 
 import Netlist.Ast
-import Graph
+import qualified Netlist.Graph as Graph
 
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
@@ -13,7 +13,7 @@ make_graph net =
                           Graph.empty
                           (netlist_var net)
   in
-  let aux graph (i,exp) = List.foldl (\g j -> add_edge i j g)
+  let aux graph (i,exp) = List.foldl (\g j -> Graph.add_edge i j g)
                           graph
                           (get_idents exp)
   in
@@ -22,7 +22,7 @@ make_graph net =
 schedule :: Netlist -> Either String Netlist
 schedule net = do
   let graph = make_graph net
-  ord <- topological graph
+  ord <- Graph.topological graph
   let eqs = Map.fromList (netlist_eq net)
   let get_eq i = Map.lookup i eqs >>= (\eq -> return (i,eq))
   let l = List.map get_eq ord
