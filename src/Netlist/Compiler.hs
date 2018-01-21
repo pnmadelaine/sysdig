@@ -146,12 +146,11 @@ kompilator netl n ins rom =
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
-compile :: Netlist -> Integer -> [(Ident, Value)] -> String -> IO ()
-compile ntlst n in_values rom  = do
+compile :: Netlist -> Integer -> [(Ident, Value)] -> String -> IO String
+compile ntlst n in_values rom = do
     content <- readFile "src/Netlist/template.c"
     let newContent = content++(kompilator ntlst n in_values rom)
-    when (length newContent > 0) $
-        writeFile "test.c" newContent
+    return newContent
 
 -- [TODO cambouis]
 -- multithread
