@@ -18,8 +18,7 @@ handle_netlist1 name = do
   let netlist = read_netlist code
   case schedule netlist of
     Left err      -> putStrLn err
-    Right net_sch -> do x <- compile net_sch (-1) [] []
-                        writeFile (dropExtension name ++ ".c") x
+    Right net_sch -> compile name net_sch 5 [] []
 
 handle_netlist2 name romname = do
   code <- readFile name
@@ -27,8 +26,7 @@ handle_netlist2 name romname = do
   rom <- readFile romname
   case schedule netlist of
     Left err      -> putStrLn err
-    Right net_sch -> do x <- compile net_sch (-1) [] rom
-                        writeFile (dropExtension name ++ ".c") x
+    Right net_sch -> compile name net_sch (-1) [] rom
 
 main :: IO ()
 main = do
@@ -38,6 +36,8 @@ main = do
   else
     if null (List.tail args)
     then
+      do
       handle_netlist1 (List.head args)
     else
+      do
       handle_netlist2 (List.head args) (List.head (List.tail args))
