@@ -1,0 +1,113 @@
+Le projet contient cinq executables :
+-------------------------------------
+
+    executable    main            description
+
+    simulator     Simulator.hs    un simulateur de netlist
+    generator     Cpu.hs          le programme qui génère la netlist du CPU
+    optimizer     Optimizer.hs    un optimisateur de netlist
+    compiler      Compiler.hs     le compilateur de netlist vers C
+    assembly      Assembly.hs     le compilateur d'assembleur MIPS vers une ROM
+
+
+Changements de conventions pour la netlist :
+--------------------------------------------
+
+Nous nous sommes éloignées de la syntaxe de la netlist sur deux points :
+  -slice i j x contient les bits de x d'indices >= i et < j
+  -ram et rom ne prennent plus d'entiers en paramètre, ceux-ci sont hardcodés dans le simulateur
+
+
+Arborescence du projet :
+------------------------
+
+src
+├── Assembly..............le code du compilateur MIPS -> ROM
+│   ├── Ast.hs
+│   ├── Compiler.hs
+│   └── Parser.hs
+├── Assembly.hs
+├── Compiler.hs
+├── Cpu...................le code générant le CPU
+│   ├── Adder.hs
+│   ├── Alu.hs
+│   ├── Branch.hs
+│   ├── Control.hs........multiplexage à partir de l'opcode
+│   ├── Instr.hs
+│   ├── Memory.hs
+│   ├── Misc.hs
+│   ├── Mult.hs...........multiplication et division sur plusieurs cycles
+│   └── Nalu.hs
+├── Cpu.hs
+├── Netlist
+│   ├── Ast.hs
+│   ├── Compiler.hs.......le code pour la compilateur Netlist -> C
+│   ├── Graph.hs
+│   ├── Jazz.hs...........le code de la monade Jazz qui permet de générer des netlist
+│   ├── Opt.hs............le code de l'optimisateur
+│   ├── Parser.hs
+│   ├── Scheduler.hs
+│   ├── Show.hs
+│   ├── Simulator.hs
+│   ├── template.c
+│   └── Typer.hs
+├── Optimizer.hs
+└── Simulator.hs
+
+
+Compilation :
+-------------
+
+Pour créer les différents executables, lancez simplement la commande 'make' à la racine.
+La compilation nécessite gcc, ghc et cabal. Il se peut que cabal vous demande d'installer des
+modules supplémentaires en utilisant 'cabal install'.
+Vous pouvez alors générer la netlist du CPU en lancant './generator', qui crée 'cpu.net'.
+Vous pouvez également générer 'cpu_opt.net' en lancant './optimizer cpu.net' (/!\ expérimental).
+Pour générer la ROM correspondant à l'horloge, executez './assembly horloge.s'.
+Vous pouvez ensuite utilisez le simulateur :
+  ./simulator cpu.net -r horloge -n [nb_steps]
+Les registres sont affichés à la fin du nombre d'itérations spécifié.
+L'horloge est cependant conçue pour être utilisée avec le simulateur, qui lit la date en RAM :
+  ./compiler cpu.net horloge
+  gcc cpu.c
+  ./cpu
+
+
+Remarques sur Netlist.Jazz :
+----------------------------
+
+Jazz est notre monade pour générer des netlist, elle remplace mini-jazz.
+On implémente deux types importants : Bit et Wire, qui représentent les fils et les nappes de fils.
+Ainsi, on peut écrire le type du combinateur qui génère une porte AND :
+  (/\) :: Bit -> Bit -> Jazz Bit
+On a en fait enrichis ce modèle en créant des type class Bt et Wr associées aux deux types :
+  (/\) :: (Bt a, Bt b) => a -> b -> Jazz Bit
+Ce qui permet d'écrire des choses telles que :
+  x <- a /\ (b /\ c)
+
+Le module Cpu.Control illustre bien la puissance de Jazz :
+on implémente une structure qui contient un champ pour chaque instruction cpu,
+à chacune de ces insrtructions on associe un fil et on écrit une fonction opcode_mux qui
+à partir de cette structure construit la netlist d'un multiplexer, qui sélectionnera un fil
+à partir de l'instruction décodée.
+On peut ainsi spécifier très simplement le comportement du CPU.
+Il est alors très facile d'ajouter, de retirer et de modifier des instructions au CPU.
+
+
+Remarques sur le CPU :
+----------------------
+
+Nous avons essayé d'implémenter un sous-ensemble de MIPS.
+Une liste des instructions se trouve dans Cpu.Control.
+Nous avons notamment implémenté :
+  -les opérations binaires "élémentaires" (sauf XOR, qui n'était pas dans le standard)
+  -l'addition et la soustraction
+  -les jumps
+  -des branchements conditionnels
+  -la division et la multiplication sur plusieurs cycles
+Elles ne sont cependant pas encore toutes implémentées, ou tout du moins elles ne vérifient
+pas encore toutes la sémantique de MIPS.
+Les instructions de lecture/écriture en RAM notamment ont un comportement assez mal défini pour
+le moment. De même, la division et la multiplication ne fonctionnent que pour des entiers
+non signés.
+
