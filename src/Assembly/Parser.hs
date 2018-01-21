@@ -44,11 +44,11 @@ get_labels n (_:xs) = get_labels (n+1) xs
 update_jumps :: Map.Map String Int -> Int -> Prog -> Prog
 update_jumps m n [] = []
 update_jumps m n ((Jexpr opc l):p)=     do let j = Jump opc $ extend_list 26 $ convert_imm (m ! l)
-                                           [j] ++ (update_jumps m (n+1) p)
+                                           j : (update_jumps m (n+1) p)
 update_jumps m n ((Lexpr l):p) =        update_jumps m n p --on a plus besoin des labels
 update_jumps m n ((Bexpr opc s t l):p)= do let b = Iexpr opc s t $ extend_list 16 $ convert_imm ( (m ! l) - n -1) -- attention PC = PC(n) + 1 + addr
-                                           [b] ++ (update_jumps m (n+1) p)
-update_jumps m n (i:p) =                [i] ++ (update_jumps m (n+1) p)
+                                           b : (update_jumps m (n+1) p)
+update_jumps m n (i:p) =                i : (update_jumps m (n+1) p)
 
 understand_assembly :: Prog -> Prog
 understand_assembly p = do let m = get_labels 0 p
@@ -171,7 +171,7 @@ convert_imm :: Int -> Imm -- poids faible à gauche convertit la valeur absolue 
 convert_imm 0 = [False]
 convert_imm 1 = [True]
 convert_imm n =
-  [aux (mod n 2)] ++ (convert_imm (div n 2))
+  (aux (mod n 2)) : (convert_imm (div n 2))
   where aux 0 = False
         aux _ = True
 
@@ -186,13 +186,13 @@ add_1 [] = error "Immediate too big"
 add_1 n = let h = List.head n in
           let t = List.tail n in
           if h then
-            [False] ++ (add_1 t)
+            False : (add_1 t)
           else
-            [True] ++ t
+            True :  t
 
 not_imm :: Imm -> Imm
 not_imm [] = []
-not_imm n = [not (List.head n)] ++ (not_imm $ List.tail n)
+not_imm n = (not (List.head n)) : (not_imm $ List.tail n)
 
 neg_imm :: Imm -> Imm
 neg_imm n = add_1 $ not_imm n
