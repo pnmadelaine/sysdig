@@ -183,11 +183,11 @@ instance Wr Wire where
 
 wire_of_integer :: (Integer, Integer) -> Wire
 wire_of_integer (n, i) =
-  let aux 0 _ = []
-      aux n 0 = List.genericReplicate n False
-      aux n i = (mod i 2 == 1):(aux (n-1) (div i 2))
-  in
-  Wire (n, ArgCst $ aux n i)
+  Wire (n, ArgCst $ foo n i)
+  where foo n x = if x >= 0 then bar n x
+                            else bar n (2 ^ n - x)
+        bar 0 _ = []
+        bar n x = (mod x 2 == 1):(bar (n-1) (div x 2))
 
 wire_of_bool_list :: [Bool] -> Wire
 wire_of_bool_list l = Wire (List.genericLength l, ArgCst l)
