@@ -53,16 +53,15 @@ init:
   li $sp,100
 
 second:
-
-  sb $t0,$zero,0
-
   addiu $t0,$t0,1
   beq $t0,$a0,minute
+  sb $t0,$zero,0
   j second
   
   
 minute:
   li $t0,0
+  sb $t0,$zero,0
   addiu $t1,$t1,1
   beq $t1,$a0,hour
   sb $t1,$zero,1
