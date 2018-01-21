@@ -110,11 +110,11 @@ handle_out szs id =
 
 handle_rom_split :: String -> [String]
 handle_rom_split s = aux [] [] 0 s
-  where aux acc _ _ [] = acc
-        aux acc acc2 32 str = aux ((List.reverse acc2):acc) [] 0 str
-        aux acc acc2 k (' ':cs) = aux acc acc2 (k+1) s
-        aux acc acc2 k ('\n':cs) = aux acc acc2 (k+1) s
-        aux acc acc2 k (c:cs) = aux acc (c:acc2) (k+1) cs
+  where aux acc _    _  []        = List.reverse acc
+        aux acc acc2 32 str       = aux ((List.reverse acc2):acc) [] 0 str
+        aux acc acc2 k  (' ':cs)  = aux acc acc2 (k+1) cs
+        aux acc acc2 k  ('\n':cs) = aux acc acc2 (k+1) cs
+        aux acc acc2 k  (c:cs)    = aux acc (c:acc2) (k+1) cs
 
 handle_rom_cell_init :: String -> Int -> String
 handle_rom_cell_init content addr = "\n_rom["++(show addr)++"] = 0b"++content++";"
@@ -146,11 +146,12 @@ kompilator netl n ins rom =
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
-compile :: Netlist -> Integer -> [(Ident, Value)] -> String -> IO String
-compile ntlst n in_values rom = do
-    content <- readFile "src/Netlist/template.c"
+compile :: String -> Netlist -> Integer -> [(Ident, Value)] -> String -> IO ()
+compile filename ntlst n in_values rom  = do
+    content <- readFile "../../../src/Netlist/template.c"
     let newContent = content++(kompilator ntlst n in_values rom)
-    return newContent
+    when (length newContent > 0) $
+        writeFile ((List.take (-4 + List.length filename) filename)++".c") newContent
 
 -- [TODO cambouis]
 -- multithread
