@@ -36,8 +36,6 @@ main = do
   else
     if null (List.tail args)
     then
-      do
       handle_netlist1 (List.head args)
     else
-      do
       handle_netlist2 (List.head args) (List.head (List.tail args))
