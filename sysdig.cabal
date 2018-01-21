@@ -19,7 +19,7 @@ executable simulator
    main-is:             Simulator.hs
    other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Scheduler
                       , Netlist.Show, Netlist.Simulator, Netlist.Typer
-                      , Graph
+                      , Netlist.Graph
    -- other-extensions:    
    build-depends:       base >=4.8 && <4.11, containers, filepath, parsec, mtl
    hs-source-dirs:      src
@@ -28,7 +28,7 @@ executable simulator
 executable compiler
    main-is:             Compiler.hs
    other-modules:       Netlist.Ast, Netlist.Typer, Netlist.Parser, Netlist.Scheduler
-                      , Graph, Netlist.Compiler
+                      , Netlist.Graph, Netlist.Compiler
    -- other-extensions:    
    build-depends:       base >=4.8 && <4.11, containers, filepath, parsec, mtl
    hs-source-dirs:      src
@@ -38,7 +38,7 @@ executable optimizer
    main-is:             Optimizer.hs
    other-modules:       Netlist.Ast, Netlist.Parser, Netlist.Scheduler
                       , Netlist.Show, Netlist.Simulator, Netlist.Typer
-                      , Graph, Netlist.Opt, Netlist.Jazz
+                      , Netlist.Graph, Netlist.Opt, Netlist.Jazz
    -- other-extensions:    
    build-depends:       base >=4.8 && <4.11, containers, filepath, parsec, mtl
    hs-source-dirs:      src
