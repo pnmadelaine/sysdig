@@ -18,12 +18,12 @@ handle_netlist1 name = do
   let netlist = read_netlist code
   case schedule netlist of
     Left err      -> putStrLn err
-    Right net_sch -> compile name net_sch 5 [] []
+    Right net_sch -> compile name net_sch 50 [] []
 
 handle_netlist2 name romname = do
   code <- readFile name
-  let netlist = read_netlist code
   rom <- readFile romname
+  let netlist = read_netlist code
   case schedule netlist of
     Left err      -> putStrLn err
     Right net_sch -> compile name net_sch (-1) [] rom
