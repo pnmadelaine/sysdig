@@ -6,7 +6,8 @@ import Netlist.Ast
 
 import System.IO
 import Data.Char
-import Control.Monad (when, foldM)
+import Control.Monad (when)
+-- foldM
 
 string_of_bool_list :: [Bool] -> String
 string_of_bool_list = aux []
@@ -30,8 +31,8 @@ handle_init :: Map.Map Ident Integer -> [(Ident, Value)] -> String
 handle_init szs ins = aux [] ins
   where aux acc [] = acc
         aux acc ((id, v):idvs) = (if ((toInteger $ List.length v) == (szs Map.! id))
-                                 then aux (acc++"\n"++id++" = 0b"++(show $ string_of_bool_list v)++";") idvs
-                                 else aux (acc++"\n/* error : bad size for "++id++" : 0b"++(show $ string_of_bool_list v)) [])
+                                 then aux (acc++"\n"++id++" = 0b"++(string_of_bool_list v)++";") idvs
+                                 else aux (acc++"\n/* error : bad size for "++id++" : 0b"++(string_of_bool_list v)) [])
 
 reg_id :: String -> String
 reg_id s = "_reg"++s++"_"
@@ -107,8 +108,28 @@ handle_out szs id =
   let sz = szs Map.! id
   in "\nprintf(\"%s\", \""++id++": \"); print("++(masko (ArgVar id) 0 sz)++");"
 
-kompilator :: Netlist -> Integer -> [(Ident, Value)] -> String
-kompilator netl n ins =
+handle_rom_split :: String -> [String]
+handle_rom_split s = aux [] [] 0 s
+  where aux acc _ _ [] = acc
+        aux acc acc2 32 str = aux ((List.reverse acc2):acc) [] 0 str
+        aux acc acc2 k (' ':cs) = aux acc acc2 (k+1) s
+        aux acc acc2 k ('\n':cs) = aux acc acc2 (k+1) s
+        aux acc acc2 k (c:cs) = aux acc (c:acc2) (k+1) cs
+
+handle_rom_cell_init :: String -> Int -> String
+handle_rom_cell_init content addr = "\n_rom["++(show addr)++"] = 0b"++content++";"
+
+handle_rom_init :: [String] -> String
+handle_rom_init instr_lst =
+  let last_addr = List.length instr_lst in
+  let instr_id_lst = List.zip instr_lst (List.reverse [0..(pred last_addr)]) in
+  concat (List.map (\(c, a) -> handle_rom_cell_init c a) instr_id_lst)
+
+rom_init :: String -> String
+rom_init str = handle_rom_init (handle_rom_split str)
+
+kompilator :: Netlist -> Integer -> [(Ident, Value)] -> String -> String
+kompilator netl n ins rom =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
        "\n"
@@ -118,24 +139,25 @@ kompilator netl n ins =
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
+    ++ (rom_init rom)
     ++ (if n < 0 then "\nwhile (1) {" else "\nfor (unsigned long int _i_ = 0; _i_ < "++(show n)++"; ++_i_){")
     ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
     ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
-compile :: Netlist -> Integer -> [(Ident, Value)] -> IO ()
-compile ntlst n in_values = do
+compile :: Netlist -> Integer -> [(Ident, Value)] -> String -> IO ()
+compile ntlst n in_values rom  = do
     content <- readFile "src/Netlist/template.c"
-    let newContent = content++(kompilator ntlst n in_values)
+    let newContent = content++(kompilator ntlst n in_values rom)
     when (length newContent > 0) $
         writeFile "test.c" newContent
 
--- [TODO]
--- ROM par chargement de fichier opérationnelle
--- ajout d'options à la compilation
+-- [TODO cambouis]
+-- multithread
+-- ajout d'options à la compilation (nombre de cycles)
+-- modification du parsing des arguments (nombre de cycles + fichier rom)
 -- saisie des variables d'entrée par fenêtre de prompt (handle_init) (2/2)
--- optimisation sur les types
 
 -- [OK]
 -- rendre le compilateur utilisable (écriture à la suite d'un fichier C faisant office de template)
@@ -145,6 +167,8 @@ compile ntlst n in_values = do
 -- RAM/ROM
 -- optimisation sur les registres
 -- saisie des variables d'entrée par fenêtre de prompt (handle_init) (1/2)
+-- ROM par chargement de fichier opérationnelle
 
 -- {useless} vérifications à faire à la compilation
 -- {osef} Integer / Int en Haskell
+-- {tequila, heineken, pas le temps de niaiser} optimisation sur les types

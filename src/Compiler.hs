@@ -13,17 +13,31 @@ import Netlist.Typer
 import Netlist.Scheduler
 import Netlist.Parser
 
-handle_netlist name = do
+handle_netlist1 name = do
   code <- readFile name
   let netlist = read_netlist code
   case schedule netlist of
     Left err      -> putStrLn err
-    Right net_sch -> compile net_sch (-1) []
+    Right net_sch -> compile net_sch (-1) [] []
+
+handle_netlist2 name romname = do
+  code <- readFile name
+  let netlist = read_netlist code
+  rom <- readFile romname
+  case schedule netlist of
+    Left err      -> putStrLn err
+    Right net_sch -> compile net_sch (-1) [] rom
 
 main :: IO ()
 main = do
   args <- getArgs
   if null args then
     putStrLn "Error: no netlist file specified"
-  else do
-    handle_netlist (List.head args)
+  else
+    if null (List.tail args)
+    then
+      do
+      handle_netlist1 (List.head args)
+    else
+      do
+      handle_netlist2 (List.head args) (List.head (List.tail args))
