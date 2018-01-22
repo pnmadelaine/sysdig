@@ -106,15 +106,15 @@ handle_eq szs (id, exp) = case exp of
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
   let sz = szs Map.! id
-  in "\nprintf(\"%s\", \""++id++": \"); print("++(masko (ArgVar id) 0 sz)++");"
+  in "\nprintf(\"%s\", \""++id++": \"); print("++id++");"
 
 handle_rom_split :: String -> [String]
 handle_rom_split s = aux [] [] 0 s
   where aux acc _    _  []        = List.reverse acc
-        aux acc acc2 32 str       = aux ((List.reverse acc2):acc) [] 0 str
-        aux acc acc2 k  (' ':cs)  = aux acc acc2 (k+1) cs
-        aux acc acc2 k  ('\n':cs) = aux acc acc2 (k+1) cs
-        aux acc acc2 k  (c:cs)    = aux acc (c:acc2) (k+1) cs
+        aux acc acc2 8 str        = aux ((List.reverse acc2):acc) []       0     str
+        aux acc acc2 k  (' ':cs)  = aux acc                       acc2     k     cs
+        aux acc acc2 k  ('\n':cs) = aux acc                       acc2     k     cs
+        aux acc acc2 k  (c:cs)    = aux acc                       (c:acc2) (k+1) cs
 
 handle_rom_cell_init :: String -> Int -> String
 handle_rom_cell_init content addr = "\n_rom["++(show addr)++"] = 0b"++content++";"
@@ -134,15 +134,15 @@ kompilator netl n ins rom =
     let regs  = reg_selection (netlist_eq netl) in
        "\n"
     ++ "\nint main(){"
-    ++ "\nint* _ram = malloc(sizeof(int) * "++(show $ 2^24)++");"
-    ++ "\nint* _rom = malloc(sizeof(int) * "++(show $ 2^24)++");"
+    ++ "\nint* _ram = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
+    ++ "\nint* _rom = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
     ++ (rom_init rom)
     ++ (if n < 0 then "\nwhile (1) {" else "\nfor (unsigned long int _i_ = 0; _i_ < "++(show n)++"; ++_i_){")
     ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
-    ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
+    ++ (concat (List.map (\x -> handle_out sizes x) (List.map (\(a, b) -> a) (netlist_var netl))))
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
