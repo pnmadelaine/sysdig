@@ -83,7 +83,7 @@ print_vars vars l = do
   putStrLn $ "---- Output ----"
   mapM_ (print_var vars) l
     where print_var var i =
-            putStrLn $ i ++ ":" ++ string_of_bool_list (fromJust $ Map.lookup i var)
+            putStrLn $ i ++ ":" ++ show (int_of_bool_list (fromJust $ Map.lookup i var))
 
 get_n [] = 1
 get_n ((NumberOfSteps n):_) = n

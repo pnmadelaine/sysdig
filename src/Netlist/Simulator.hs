@@ -1,4 +1,4 @@
-module Netlist.Simulator (simulate) where
+module Netlist.Simulator (simulate, int_of_bool_list) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
@@ -14,7 +14,6 @@ int_of_bool_list l = aux 0 (List.reverse l)
   where aux acc []         = acc
         aux acc (True:xs)  = aux (1+2*acc) xs
         aux acc (False:xs) = aux (2*acc)   xs
-
 read_ram :: Value -> Ram -> Value
 read_ram addr ram = Map.findWithDefault def (int_of_bool_list addr) ram
 
