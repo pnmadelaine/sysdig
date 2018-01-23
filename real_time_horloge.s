@@ -39,7 +39,7 @@ decembre:
   
   
 gettime:
-  lw $at,$zero,10
+  lw $at,$zero,28
   li $t0,0
   li $t1,0
   li $t2,0
@@ -50,14 +50,16 @@ gettime:
   
   lw $at,$zero,10
   
-  li $ra, 126230400
+  lui $ra, 1926
+  addiu $ra,$ra,8064
   divu $at,$ra
   mflo $a1
   sll $ra,$a1,2
   addu $t6,$t6,$ra
   
   mfhi $fp
-  li $ra, 31536000
+  lui $ra, 481
+  addiu $ra,$ra,13184
   divu $fp,$ra
   mflo $a2
   addu $t6,$t6,$a2 
@@ -110,32 +112,32 @@ minute:
   sb $t0,$zero,0
   addiu $t1,$t1,1
   beq $t1,$a0,hour
-  sb $t1,$zero,1
+  sb $t1,$zero,4
   j second
   
 hour:
   li $t1,0
-  sb $t1,$zero,1
+  sb $t1,$zero,4
   addiu $t2,$t2,1
   beq $t2,$a1,day
-  sb $t2,$zero,2
+  sb $t2,$zero,8
   j second
   
 day:
   li $t2,0  
-  sb $t2,$zero,2
+  sb $t2,$zero,8
   addiu $t4,$t4,1 
 
   addiu $t3,$t3,1
-  sb $t3,$zero,3
+  sb $t3,$zero,12
 
   beq $t4,$a2,week  
-  sb $t4,$zero,4
+  sb $t4,$zero,16
   jr $t5
 
 week:
   li $t4,0  
-  sb $t4,$zero,4
+  sb $t4,$zero,16
   jr $t5
   
 nd_30:
@@ -169,16 +171,16 @@ cent_bissextile:
   
 month:
   li $t3,1
-  sb $t3,$zero,3
+  sb $t3,$zero,12
   addiu $t5,$t5,1
   beq $t5,$a3,year
-  sb $t5,$zero,5
+  sb $t5,$zero,20
   j second
   
 year:
   li $t5,1
-  sb $t5,$zero,5
+  sb $t5,$zero,20
   addiu $t6,$t6,1  
-  sw $t6,$zero,6
+  sw $t6,$zero,24
   j second
   
