@@ -53,8 +53,12 @@ init:
   li $sp,100
 
 second:
-
-  sb $t0,$zero,0
+  sw $t0,$zero,0
+  sw $t1,$zero,4
+  sw $t2,$zero,8
+  sw $t3,$zero,12
+  sw $t5,$zero,20
+  sw $t6,$zero,124
 
   addiu $t0,$t0,1
   beq $t0,$a0,minute
@@ -65,32 +69,25 @@ minute:
   li $t0,0
   addiu $t1,$t1,1
   beq $t1,$a0,hour
-  sb $t1,$zero,1
   j second
   
 hour:
   li $t1,0
-  sb $t1,$zero,1
   addiu $t2,$t2,1
   beq $t2,$a1,day
-  sb $t2,$zero,2
   j second
   
 day:
-  li $t2,0  
-  sb $t2,$zero,2
+  li $t2,0
   addiu $t4,$t4,1 
 
   addiu $t3,$t3,1
-  sb $t3,$zero,3
 
-  beq $t4,$a2,week  
-  sb $t4,$zero,4
+  beq $t4,$a2,week
   jr $t5
 
 week:
-  li $t4,0  
-  sb $t4,$zero,4
+  li $t4,0
   jr $t5
   
 nd_30:
@@ -124,15 +121,11 @@ cent_bissextile:
   
 month:
   li $t3,0
-  sb $t3,$zero,3
   addiu $t5,$t5,1
   beq $t5,$a3,year
-  sb $t5,$zero,5
   j second
   
 year:
   li $t5,0
-  sb $t5,$zero,5
-  addiu $t6,$t6,1  
-  sw $t6,$zero,6
+  addiu $t6,$t6,1
   j second
