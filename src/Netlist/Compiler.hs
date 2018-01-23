@@ -8,8 +8,11 @@ import System.IO
 import Data.Char
 import Control.Monad (when)
 
-ram_size = 2^24
-rom_size = 2^24
+ram_size = 24
+rom_size = 24
+ram_limit = 23
+rom_limit = 23
+debug_ram = False
 
 string_of_bool_list :: [Bool] -> String
 string_of_bool_list = aux []
@@ -100,11 +103,13 @@ handle_eq szs (id, exp) =
                       -- ++") | (0b"++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
     Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
     Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
-    Eram ra we wa d   -> "\n"++id++" = _ram[("++(getvalue ra)++" % "++(show ram_size)++")];"
+    Eram ra we wa d   -> (if debug_ram then "\nprint("++(getvalue ra)++");" else "")
+                       ++"\n"++id++" = _ram[("++(getvalue ra)++" & 0b"++(mask 0 ram_limit)++")];"
+                       ++(if debug_ram then "\nprint("++(getvalue wa)++");" else "")
                        ++" if ("++(getvalue we)++" & 1 == 1){"
-                       ++" _ram[("++(getvalue wa)++" % "++(show ram_size)++")] = "++(getvalue d)++";"
+                       ++" _ram[("++(getvalue wa)++" & 0b"++(mask 0 ram_limit)++")] = "++(getvalue d)++";"
                        ++" }"
-    Erom ra           -> "\n"++id++" = _rom[("++(getvalue ra)++" % "++(show rom_size)++")];"
+    Erom ra           -> "\n"++id++" = _rom[("++(getvalue ra)++" & 0b"++(mask 0 ram_limit)++")];"
 
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
@@ -125,7 +130,7 @@ handle_rom_cell_init content addr = "\n_rom["++(show addr)++"] = 0b"++content++"
 handle_rom_init :: [String] -> String
 handle_rom_init instr_lst =
   let last_addr = List.length instr_lst in
-  let instr_id_lst = List.zip instr_lst (List.map (\x -> x) $ List.reverse [0..(pred last_addr)]) in
+  let instr_id_lst = List.zip instr_lst (List.reverse [0..(pred last_addr)]) in
   concat (List.map (\(c, a) -> handle_rom_cell_init c a) instr_id_lst)
 
 rom_init :: String -> String
@@ -136,8 +141,8 @@ kompilator netl ins rom =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
        "\n"
-    ++ "\nint* _ram = malloc(sizeof(int) * "++(show ram_size)++");"
-    ++ "\nint* _rom = malloc(sizeof(unsigned long int) * "++(show rom_size)++");"
+    ++ "\nint* _ram = malloc(sizeof(int) * "++(show $ 2^(ram_size))++");"
+    ++ "\nint* _rom = malloc(sizeof(int) * "++(show $ 2^(rom_size))++");"
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
