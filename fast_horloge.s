@@ -120,7 +120,7 @@ machin:
   li $ra,10
   beq $ra,$t5,nd_31
   li $ra,11
-  beq $ra,$t5,nd_3
+  beq $ra,$t5,nd_30
   li $ra,12
   beq $ra,$t5,nd_31
   
