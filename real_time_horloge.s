@@ -95,7 +95,7 @@ init:
   j second
 
 second:
-  lw $at,$zero,10
+  lw $at,$zero,28
   beq $at,$fp,second
 
   addiu $fp,$fp,1
@@ -131,12 +131,38 @@ day:
 
   beq $t4,$a2,week  
   sw $t4,$zero,16
-  jr $t5
+  j machin
 
 week:
   li $t4,0  
   sw $t4,$zero,16
-  jr $t5
+  j machin
+
+machin:
+  li $ra,1
+  jeq $ra,$t5,nd_31
+  li $ra,2
+  jeq $ra,$t5,nd_fevrier
+  li $ra,3
+  jeq $ra,$t5,nd_31
+  li $ra,4
+  jeq $ra,$t5,nd_30
+  li $ra,5
+  jeq $ra,$t5,nd_31
+  li $ra,6
+  jeq $ra,$t5,nd_30
+  li $ra,7
+  jeq $ra,$t5,nd_31
+  li $ra,8
+  jeq $ra,$t5,nd_31
+  li $ra,9
+  jeq $ra,$t5,nd_30
+  li $ra,10
+  jeq $ra,$t5,nd_31
+  li $ra,11
+  jeq $ra,$t5,nd_3
+  li $ra,12
+  jeq $ra,$t5,nd_31
   
 nd_30:
   beq $t3,$k0,month
