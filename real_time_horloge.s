@@ -60,8 +60,10 @@ gettime:
   li $ra, 31536000
   divu $fp,$ra
   mflo $a2
-  addu $t6,$t6,$a2
-
+  addu $t6,$t6,$a2 
+    
+  mfhi $ra
+  subu $fp,$at,$ra
   
   li $ra,5
   multu $ra,$a1
@@ -93,6 +95,10 @@ init:
   j second
 
 second:
+  lw $at,$zero,10
+  beq $at,$fp,second
+
+  addiu $fp,$fp,1
   addiu $t0,$t0,1
   beq $t0,$a0,minute
   sb $t0,$zero,0
