@@ -1,16 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+
+void* threadSimulator (int* a);
+void* threadPrinter (int* a);
 
 int print(unsigned long int a){
 	printf("%lu\n", a);
 }
 
-int main(int argc, char* argv[]){
-	int _n = 500;
-	// if (argc > 1) {
-	// 	_n = (long int) argv[1];
-	// } else {
-	// 	_n = -1;
-	// }
+int f(unsigned long int t0, unsigned long int t1, unsigned long int t2, unsigned long int t3, unsigned long int t5, unsigned long int t6){
+	printf("%c[2K\r", 27);
+	printf("%lu:%lu:%lu, %lu/%lu/%lu", t2, t1, t0, t3, t5, t6);
+	fflush(stdout);
+}
 
+int main(){

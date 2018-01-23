@@ -136,30 +136,39 @@ handle_rom_init instr_lst =
 rom_init :: String -> String
 rom_init str = handle_rom_init (handle_rom_split str)
 
-kompilator :: Netlist -> [(Ident, Value)] -> String -> String
+kompilator :: Netlist -> [(Ident, Value)] -> String -> (String, String)
 kompilator netl ins rom =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
-       "\n"
-    ++ "\nint* _ram = malloc(sizeof(int) * "++(show $ 2^(ram_size))++");"
-    ++ "\nint* _rom = malloc(sizeof(int) * "++(show $ 2^(rom_size))++");"
-    ++ (handle_var (netlist_var netl))
-    ++ (handle_init sizes ins)
-    ++ (reg_init regs)
-    ++ (rom_init rom)
-    ++ "\nwhile (_n == -1 || _n > 0) {"
-    ++ "\nif (_n > 0) { _n = _n - 1; }"
-    ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
-    -- ++ (concat (List.map (\(x,y) -> handle_out sizes x) (netlist_var netl)))
-    ++ (reg_save regs)
-    ++ "\n}"
-    ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
-    ++ "\n}\n"
+       (
+           "\nunsigned int _ram_size = "++(show $ 2^(ram_size))++";"
+        ++ "\nunsigned int _ram_limit = "++(show $ 2^(ram_limit))++";",
+
+           "\nint* _rom = malloc(sizeof(int) * "++(show $ 2^(rom_size))++");"
+        ++ (handle_var (netlist_var netl))
+        ++ (handle_init sizes ins)
+        ++ (reg_init regs)
+        ++ (rom_init rom)
+        ++ "\nwhile (_n == -1 || _n > 0) {"
+        ++ "\nif (_n > 0) { _n = _n - 1; }"
+        ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
+        -- ++ (concat (List.map (\(x,y) -> handle_out sizes x) (netlist_var netl)))
+        ++ (reg_save regs)
+        ++ "\n}"
+        -- ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
+        ++ "\n\n"
+        )
 
 compile :: String -> Netlist -> [(Ident, Value)] -> String -> IO ()
-compile filename ntlst in_values rom  = do
+compile filename ntlst in_values rom  =
+  let kcontent = kompilator ntlst in_values rom in
+  let kcontent1 = fst kcontent in
+  let kcontent2 = snd kcontent in
+  do
     content <- readFile "../../../src/Netlist/template.c"
-    let newContent = content++(kompilator ntlst in_values rom)
+    content2 <- readFile "../../../src/Netlist/template2.c"
+    content3 <- readFile "../../../src/Netlist/template3.c"
+    let newContent = content++kcontent1++content2++kcontent2++content3
     when (length newContent > 0) $
         writeFile ((List.take (-4 + List.length filename) filename)++".c") newContent
 
