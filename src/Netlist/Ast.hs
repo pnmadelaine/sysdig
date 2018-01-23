@@ -56,7 +56,7 @@ apply_op op a b =
             Or   -> \(x,y) -> x || y
             Xor  -> \(x,y) -> x /= y
             And  -> \(x,y) -> x && y
-            Nand -> \(x,y) -> not(x&&y)
+            Nand -> \(x,y) -> not (x && y)
   in
   List.map f (List.zip a b)
 

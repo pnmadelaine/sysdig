@@ -97,7 +97,7 @@ handle_eq szs (id, exp) = case exp of
                             Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
                             Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
                             Eram ra we wa d   -> "\n"++id++" = _ram["++(getvalue ra)++"];"
-                                               ++" if ("++(getvalue we)++" & 1){"
+                                               ++" if ("++(getvalue we)++" & 1 == 1){"
                                                ++" _ram["++(getvalue wa)++"] = "++(getvalue d)++";"
                                                ++" }"
                             Erom ra           -> "\n"++id++" = _rom["++(getvalue ra)++"];"
@@ -110,7 +110,7 @@ handle_out szs id =
 handle_rom_split :: String -> [String]
 handle_rom_split s = aux [] [] 0 s
   where aux acc _    _  []        = List.reverse acc
-        aux acc acc2 32  str       = aux ((List.reverse acc2):acc) []       0     str
+        aux acc acc2 8  str       = aux ((List.reverse acc2):acc) []       0     str
         aux acc acc2 k  (' ':cs)  = aux acc                       acc2     k     cs
         aux acc acc2 k  ('\n':cs) = aux acc                       acc2     k     cs
         aux acc acc2 k  (c:cs)    = aux acc                       (c:acc2) (k+1) cs
@@ -139,12 +139,13 @@ kompilator netl ins rom =
     ++ (reg_init regs)
     ++ (rom_init rom)
     ++ "\nwhile (_n == -1 || _n > 0) {"
-    ++ "\nif (_n > 0) { _n--; }"
+    ++ "\nif (_n > 0) { _n = _n - 1; }"
     ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
-    ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
     -- ++ (concat (List.map (\(x,y) -> handle_out sizes x) (netlist_var netl)))
     ++ (reg_save regs)
-    ++ "\n}\n}\n"
+    ++ "\n}"
+    ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
+    ++ "\n}\n"
 
 compile :: String -> Netlist -> [(Ident, Value)] -> String -> IO ()
 compile filename ntlst in_values rom  = do

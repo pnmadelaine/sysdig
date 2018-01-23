@@ -7,7 +7,7 @@ int print(unsigned long int a){
 }
 
 int main(int argc, char* argv[]){
-	int _n = 5;
+	int _n = 1000000;
 	// if (argc > 1) {
 	// 	_n = (long int) argv[1];
 	// } else {
