@@ -6,3 +6,11 @@ int print(unsigned long int a){
 	printf("%lu\n", a);
 }
 
+int main(int argc, char* argv[]){
+	int _n = 5;
+	// if (argc > 1) {
+	// 	_n = (long int) argv[1];
+	// } else {
+	// 	_n = -1;
+	// }
+

@@ -7,13 +7,12 @@ import Netlist.Ast
 import System.IO
 import Data.Char
 import Control.Monad (when)
--- foldM
 
 string_of_bool_list :: [Bool] -> String
 string_of_bool_list = aux []
   where aux acc []         = acc
-        aux acc (True:bs)  = aux (acc++"1") bs
-        aux acc (False:bs) = aux (acc++"0") bs
+        aux acc (True:bs)  = aux ('1':acc) bs
+        aux acc (False:bs) = aux ('0':acc) bs
 
 bool_list_of_string :: String -> [Bool]
 bool_list_of_string = aux []
@@ -89,11 +88,11 @@ handle_eq szs (id, exp) = case exp of
                                                    Or   -> "\n"++id++" = "++(getvalue a)++" | "++(getvalue b)++";"
                                                    Xor  -> "\n"++id++" = "++(getvalue a)++" ^ "++(getvalue b)++";"
                                                    And  -> "\n"++id++" = "++(getvalue a)++" & "++(getvalue b)++";"
-                                                   Nand -> "\n"++id++" = ~ ("++(getvalue a)++" & "++(getvalue b)++");"
+                                                   Nand -> "\n"++id++" = ("++(getvalue a)++" & "++(getvalue b)++") ^ (-1);"
                             Emux a b c        -> "\n"++id++" = ("++(getvalue a)++" & 1 == 1) ? "
                                                ++(getvalue b)++" : "++(getvalue c)++";"
                             Econcat a b       -> "\n"++id++" = ("++(getvalue a)++" << "++(show $ getsize szs b)
-                                              ++") | "++(masko b 0 (pred $ getsize szs b))++";"
+                                              ++") | "++(masko b 0 (getsize szs b))++";"
                                               -- ++") | (0b"++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
                             Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
                             Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
@@ -106,12 +105,12 @@ handle_eq szs (id, exp) = case exp of
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
   let sz = szs Map.! id
-  in "\nprintf(\"%s\", \""++id++": \"); print("++id++");"
+  in "\nprintf(\"%s\", \""++id++": \"); print("++(masko (ArgVar id) 0 sz)++");"
 
 handle_rom_split :: String -> [String]
 handle_rom_split s = aux [] [] 0 s
   where aux acc _    _  []        = List.reverse acc
-        aux acc acc2 8 str        = aux ((List.reverse acc2):acc) []       0     str
+        aux acc acc2 32  str       = aux ((List.reverse acc2):acc) []       0     str
         aux acc acc2 k  (' ':cs)  = aux acc                       acc2     k     cs
         aux acc acc2 k  ('\n':cs) = aux acc                       acc2     k     cs
         aux acc acc2 k  (c:cs)    = aux acc                       (c:acc2) (k+1) cs
@@ -122,34 +121,35 @@ handle_rom_cell_init content addr = "\n_rom["++(show addr)++"] = 0b"++content++"
 handle_rom_init :: [String] -> String
 handle_rom_init instr_lst =
   let last_addr = List.length instr_lst in
-  let instr_id_lst = List.zip instr_lst (List.reverse [0..(pred last_addr)]) in
+  let instr_id_lst = List.zip instr_lst (List.map (\x -> x) $ List.reverse [0..(pred last_addr)]) in
   concat (List.map (\(c, a) -> handle_rom_cell_init c a) instr_id_lst)
 
 rom_init :: String -> String
 rom_init str = handle_rom_init (handle_rom_split str)
 
-kompilator :: Netlist -> Integer -> [(Ident, Value)] -> String -> String
-kompilator netl n ins rom =
+kompilator :: Netlist -> [(Ident, Value)] -> String -> String
+kompilator netl ins rom =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
        "\n"
-    ++ "\nint main(){"
     ++ "\nint* _ram = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
     ++ "\nint* _rom = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
     ++ (rom_init rom)
-    ++ (if n < 0 then "\nwhile (1) {" else "\nfor (unsigned long int _i_ = 0; _i_ < "++(show n)++"; ++_i_){")
+    ++ "\nwhile (_n == -1 || _n > 0) {"
+    ++ "\nif (_n > 0) { _n--; }"
     ++ (concat (List.map (\x -> handle_eq sizes x) (netlist_eq netl)))
-    ++ (concat (List.map (\x -> handle_out sizes x) (List.map (\(a, b) -> a) (netlist_var netl))))
+    ++ (concat (List.map (\x -> handle_out sizes x) (netlist_out netl)))
+    -- ++ (concat (List.map (\(x,y) -> handle_out sizes x) (netlist_var netl)))
     ++ (reg_save regs)
     ++ "\n}\n}\n"
 
-compile :: String -> Netlist -> Integer -> [(Ident, Value)] -> String -> IO ()
-compile filename ntlst n in_values rom  = do
+compile :: String -> Netlist -> [(Ident, Value)] -> String -> IO ()
+compile filename ntlst in_values rom  = do
     content <- readFile "../../../src/Netlist/template.c"
-    let newContent = content++(kompilator ntlst n in_values rom)
+    let newContent = content++(kompilator ntlst in_values rom)
     when (length newContent > 0) $
         writeFile ((List.take (-4 + List.length filename) filename)++".c") newContent
 
