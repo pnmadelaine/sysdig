@@ -40,6 +40,9 @@ gettime:
   
   
 init:
+  sw $t3,$zero,12
+  sw $t5,$zero,20
+  sw $t6,$zero,24
   li $a0,60
   li $a1,24
   li $a2, 7
@@ -97,29 +100,29 @@ week:
 
 machin:
   li $ra,1
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,2
-  jeq $ra,$t5,nd_fevrier
+  beq $ra,$t5,nd_fevrier
   li $ra,3
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,4
-  jeq $ra,$t5,nd_30
+  beq $ra,$t5,nd_30
   li $ra,5
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,6
-  jeq $ra,$t5,nd_30
+  beq $ra,$t5,nd_30
   li $ra,7
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,8
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,9
-  jeq $ra,$t5,nd_30
+  beq $ra,$t5,nd_30
   li $ra,10
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   li $ra,11
-  jeq $ra,$t5,nd_3
+  beq $ra,$t5,nd_3
   li $ra,12
-  jeq $ra,$t5,nd_31
+  beq $ra,$t5,nd_31
   
 nd_30:
   beq $t3,$k0,month
