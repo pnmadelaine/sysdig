@@ -16,12 +16,15 @@ cpu = do init_registers
          (flags, res) <- alu_output instr
          write_reg (output_reg instr) res
          branch instr res
+         output "secondes" $ reg_out "t0"
+         output "minutes" $ reg_out "t1"
+         output "heures" $ reg_out "t2"
+         output "jour" $ reg_out "t3"
+         output "mois" $ reg_out "t5"
+         output "annee" $ reg_out "t6" 
 
 netlist = build_netlist cpu
-netlist' = netlist { netlist_out = netlist_out netlist ++ List.tail registers_names
-                                                       ++ ["pc", "hi", "lo", "state"]
-                   }
 
 main :: IO ()
-main = writeFile "cpu.net" $ show netlist'
+main = writeFile "cpu.net" $ show netlist
 
