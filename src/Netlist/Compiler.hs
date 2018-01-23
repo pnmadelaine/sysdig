@@ -8,6 +8,9 @@ import System.IO
 import Data.Char
 import Control.Monad (when)
 
+ram_size = 2^24
+rom_size = 2^24
+
 string_of_bool_list :: [Bool] -> String
 string_of_bool_list = aux []
   where aux acc []         = acc
@@ -80,27 +83,28 @@ masko arg i j = case arg of
                               in "0b"++(string_of_bool_list result)
 
 handle_eq :: Map.Map Ident Integer -> (Ident, Expression) -> String
-handle_eq szs (id, exp) = case exp of
-                            Earg a            -> "\n"++id++" = "++(getvalue a)++";"
-                            Ereg id2          -> "\n"++id++" = "++(getvalue (ArgVar (reg_id id2)))++";"
-                            Enot a            -> "\n"++id++" = "++(getvalue a)++" ^ (-1);"
-                            Ebinop op a b     -> case op of
-                                                   Or   -> "\n"++id++" = "++(getvalue a)++" | "++(getvalue b)++";"
-                                                   Xor  -> "\n"++id++" = "++(getvalue a)++" ^ "++(getvalue b)++";"
-                                                   And  -> "\n"++id++" = "++(getvalue a)++" & "++(getvalue b)++";"
-                                                   Nand -> "\n"++id++" = ("++(getvalue a)++" & "++(getvalue b)++") ^ (-1);"
-                            Emux a b c        -> "\n"++id++" = ("++(getvalue a)++" & 1 == 1) ? "
-                                               ++(getvalue b)++" : "++(getvalue c)++";"
-                            Econcat a b       -> "\n"++id++" = ("++(getvalue a)++" << "++(show $ getsize szs b)
-                                              ++") | "++(masko b 0 (getsize szs b))++";"
-                                              -- ++") | (0b"++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
-                            Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
-                            Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
-                            Eram ra we wa d   -> "\n"++id++" = _ram["++(getvalue ra)++"];"
-                                               ++" if ("++(getvalue we)++" & 1 == 1){"
-                                               ++" _ram["++(getvalue wa)++"] = "++(getvalue d)++";"
-                                               ++" }"
-                            Erom ra           -> "\n"++id++" = _rom["++(getvalue ra)++"];"
+handle_eq szs (id, exp) =
+  case exp of
+    Earg a            -> "\n"++id++" = "++(getvalue a)++";"
+    Ereg id2          -> "\n"++id++" = "++(getvalue (ArgVar (reg_id id2)))++";"
+    Enot a            -> "\n"++id++" = "++(getvalue a)++" ^ (-1);"
+    Ebinop op a b     -> case op of
+                           Or   -> "\n"++id++" = "++(getvalue a)++" | "++(getvalue b)++";"
+                           Xor  -> "\n"++id++" = "++(getvalue a)++" ^ "++(getvalue b)++";"
+                           And  -> "\n"++id++" = "++(getvalue a)++" & "++(getvalue b)++";"
+                           Nand -> "\n"++id++" = ("++(getvalue a)++" & "++(getvalue b)++") ^ (-1);"
+    Emux a b c        -> "\n"++id++" = ("++(getvalue a)++" & 1 == 1) ? "
+                       ++(getvalue b)++" : "++(getvalue c)++";"
+    Econcat a b       -> "\n"++id++" = ("++(getvalue a)++" << "++(show $ getsize szs b)
+                      ++") | "++(masko b 0 (getsize szs b))++";"
+                      -- ++") | (0b"++(mask 0 (pred $ getsize szs b))++" & "++(getvalue b)++");"
+    Eslice i j a      -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
+    Eselect i a       -> "\n"++id++" = "++(getvalue a)++" >> "++(show i)++";"
+    Eram ra we wa d   -> "\n"++id++" = _ram[("++(getvalue ra)++" % "++(show ram_size)++")];"
+                       ++" if ("++(getvalue we)++" & 1 == 1){"
+                       ++" _ram[("++(getvalue wa)++" % "++(show ram_size)++")] = "++(getvalue d)++";"
+                       ++" }"
+    Erom ra           -> "\n"++id++" = _rom[("++(getvalue ra)++" % "++(show rom_size)++")];"
 
 handle_out :: Map.Map Ident Integer -> Ident -> String
 handle_out szs id =
@@ -132,8 +136,8 @@ kompilator netl ins rom =
     let sizes = Map.fromList (netlist_var netl) in
     let regs  = reg_selection (netlist_eq netl) in
        "\n"
-    ++ "\nint* _ram = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
-    ++ "\nint* _rom = malloc(sizeof(unsigned long int) * "++(show $ 2^24)++");"
+    ++ "\nint* _ram = malloc(sizeof(int) * "++(show ram_size)++");"
+    ++ "\nint* _rom = malloc(sizeof(unsigned long int) * "++(show rom_size)++");"
     ++ (handle_var (netlist_var netl))
     ++ (handle_init sizes ins)
     ++ (reg_init regs)
