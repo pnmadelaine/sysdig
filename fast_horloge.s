@@ -1,45 +1,8 @@
 main:
   j gettime
- 
-ganvier:
-  j nd_31
-  
-fevrier:
-  j nd_fevrier
-  
-mars:
-  j nd_31
-  
-avril:
-  j nd_30
-  
-mai:
-  j nd_31
-  
-guin:
-  j nd_30
-  
-guillet:
-  j nd_31
-  
-aout:
-  j nd_31
-  
-septembre:
-  j nd_30
-  
-octobre:
-  j nd_31
-  
-novembre:
-  j nd_30
-  
-decembre:
-  j nd_31
-  
   
 gettime:
-  lw $at,$zero,10
+  lw $at,$zero,28
   li $t0,0
   li $t1,0
   li $t2,0
@@ -47,8 +10,6 @@ gettime:
   li $t4,3
   li $t5,1
   li $t6,1970
-  
-  lw $at,$zero,10
   
   lui $ra, 1926
   addiu $ra,$ra,8064
@@ -79,6 +40,9 @@ gettime:
   
   
 init:
+  sw $t3,$zero,12
+  sw $t5,$zero,20
+  sw $t6,$zero,24
   li $a0,60
   li $a1,24
   li $a2, 7
@@ -97,42 +61,68 @@ init:
 second:
   addiu $t0,$t0,1
   beq $t0,$a0,minute
-  sb $t0,$zero,0
+  sw $t0,$zero,0
   j second
   
   
 minute:
   li $t0,0
-  sb $t0,$zero,0
+  sw $t0,$zero,0
   addiu $t1,$t1,1
   beq $t1,$a0,hour
-  sb $t1,$zero,4
+  sw $t1,$zero,4
   j second
   
 hour:
   li $t1,0
-  sb $t1,$zero,4
+  sw $t1,$zero,4
   addiu $t2,$t2,1
   beq $t2,$a1,day
-  sb $t2,$zero,8
+  sw $t2,$zero,8
   j second
   
 day:
   li $t2,0  
-  sb $t2,$zero,8
+  sw $t2,$zero,8
   addiu $t4,$t4,1 
 
   addiu $t3,$t3,1
-  sb $t3,$zero,12
+  sw $t3,$zero,12
 
   beq $t4,$a2,week  
-  sb $t4,$zero,16
-  jr $t5
+  sw $t4,$zero,16
+  j machin
 
 week:
   li $t4,0  
-  sb $t4,$zero,16
-  jr $t5
+  sw $t4,$zero,16
+  j machin
+
+machin:
+  li $ra,1
+  beq $ra,$t5,nd_31
+  li $ra,2
+  beq $ra,$t5,nd_fevrier
+  li $ra,3
+  beq $ra,$t5,nd_31
+  li $ra,4
+  beq $ra,$t5,nd_30
+  li $ra,5
+  beq $ra,$t5,nd_31
+  li $ra,6
+  beq $ra,$t5,nd_30
+  li $ra,7
+  beq $ra,$t5,nd_31
+  li $ra,8
+  beq $ra,$t5,nd_31
+  li $ra,9
+  beq $ra,$t5,nd_30
+  li $ra,10
+  beq $ra,$t5,nd_31
+  li $ra,11
+  beq $ra,$t5,nd_30
+  li $ra,12
+  beq $ra,$t5,nd_31
   
 nd_30:
   beq $t3,$k0,month
@@ -165,15 +155,15 @@ cent_bissextile:
   
 month:
   li $t3,1
-  sb $t3,$zero,12
+  sw $t3,$zero,12
   addiu $t5,$t5,1
   beq $t5,$a3,year
-  sb $t5,$zero,20
+  sw $t5,$zero,20
   j second
   
 year:
   li $t5,1
-  sb $t5,$zero,20
+  sw $t5,$zero,20
   addiu $t6,$t6,1  
   sw $t6,$zero,24
   j second
