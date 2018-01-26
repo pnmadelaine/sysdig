@@ -1,0 +1,2 @@
+    pthread_exit(NULL);
+}
