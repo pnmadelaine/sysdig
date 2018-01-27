@@ -133,10 +133,11 @@ nd_31:
   j second
   
 nd_fevrier:
-
   beq $t3,$v1,month
-  bne $t3,$v0,second
+  beq $t3,$v0,n_28
+  j second
 
+n_28:
   andi $ra,$t6,3
   beq $ra,$zero,bissextile
   j month
