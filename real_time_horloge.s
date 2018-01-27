@@ -18,15 +18,16 @@ gettime:
   sll $ra,$a1,2
   addu $t6,$t6,$ra
   
-  mfhi $fp
+  mfhi $s0
   lui $ra, 481
   addiu $ra,$ra,13184
-  divu $fp,$ra
+  divu $s0,$ra
   mflo $a2
-  addu $t6,$t6,$a2 
-    
+  addu $t6,$t6,$a2
+
   mfhi $ra
   subu $fp,$at,$ra
+
   
   li $ra,5
   multu $ra,$a1
@@ -45,7 +46,6 @@ init:
   sw $t3,$zero,12
   sw $t5,$zero,20
   sw $t6,$zero,24
-
   li $a0,60
   li $a1,24
   li $a2, 7
@@ -66,6 +66,7 @@ second:
   beq $at,$fp,second
 
   addiu $fp,$fp,1
+
   addiu $t0,$t0,1
   beq $t0,$a0,minute
   sw $t0,$zero,0
@@ -140,10 +141,11 @@ nd_31:
   j second
   
 nd_fevrier:
-
   beq $t3,$v1,month
-  bne $t3,$v0,second
+  beq $t3,$v0,n_28
+  j second
 
+n_28:
   andi $ra,$t6,3
   beq $ra,$zero,bissextile
   j month
@@ -174,4 +176,5 @@ year:
   addiu $t6,$t6,1  
   sw $t6,$zero,24
   j second
+  
   
