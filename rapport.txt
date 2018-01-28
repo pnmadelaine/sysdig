@@ -58,20 +58,9 @@ src
 Compilation :
 -------------
 
-Pour créer les différents executables, lancez simplement la commande 'make' à la racine.
-La compilation nécessite gcc, ghc et cabal. Il se peut que cabal vous demande d'installer des
-modules supplémentaires en utilisant 'cabal install'.
-Vous pouvez alors générer la netlist du CPU en lancant './generator', qui crée 'cpu.net'.
-Vous pouvez également générer 'cpu_opt.net' en lancant './optimizer cpu.net' (/!\ expérimental).
-Pour générer la ROM correspondant à l'horloge, executez './assembly horloge.s'.
-Vous pouvez ensuite utilisez le simulateur :
-  ./simulator cpu.net -r horloge -n [nb_steps]
-Les registres sont affichés à la fin du nombre d'itérations spécifié.
-L'horloge est cependant conçue pour être utilisée avec le simulateur, qui lit la date en RAM :
-  ./compiler cpu.net horloge
-  gcc cpu.c
-  ./cpu
-
+Lancez la commande 'make'.
+Elle génère les différents executables du projet,
+notamment 'clock_exec' et 'fast_clock_exec' qui sont les deux horloges.
 
 Remarques sur Netlist.Jazz :
 ----------------------------

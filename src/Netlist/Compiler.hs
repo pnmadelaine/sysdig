@@ -4,6 +4,7 @@ import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import Netlist.Ast
 
+import System.FilePath
 import System.IO
 import Data.Char
 import Control.Monad (when)
@@ -165,12 +166,12 @@ compile filename ntlst in_values rom  =
   let kcontent1 = fst kcontent in
   let kcontent2 = snd kcontent in
   do
-    content <- readFile "../../../src/Netlist/template.c"
-    content2 <- readFile "../../../src/Netlist/template2.c"
-    content3 <- readFile "../../../src/Netlist/template3.c"
+    content <- readFile "template.c"
+    content2 <- readFile "template2.c"
+    content3 <- readFile "template3.c"
     let newContent = content++kcontent1++content2++kcontent2++content3
     when (length newContent > 0) $
-        writeFile ((List.take (-4 + List.length filename) filename)++".c") newContent
+        writeFile (dropExtension filename++".c") newContent
 
 -- [TODO cambouis]
 -- multithread
