@@ -49,7 +49,6 @@ src
 │   ├── Scheduler.hs
 │   ├── Show.hs
 │   ├── Simulator.hs
-│   ├── template.c
 │   └── Typer.hs
 ├── Optimizer.hs
 └── Simulator.hs
@@ -99,4 +98,10 @@ pas encore toutes la sémantique de MIPS.
 Les instructions de lecture/écriture en RAM notamment ont un comportement assez mal défini pour
 le moment. De même, la division et la multiplication ne fonctionnent que pour des entiers
 non signés.
+
+Horloges en assembleur :
+------------------------
+
+Un rapport pdf (plus lisible car il contient du code) est présent pour les horloges
+Il se nomme Horloges.pdf
 
