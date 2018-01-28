@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <time.h>
 
 void* threadSimulator (int* a);
 void* threadPrinter (int* a);

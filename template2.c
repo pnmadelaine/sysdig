@@ -17,6 +17,7 @@
 void* threadPrinter (int* _ram)
 {
     while(1) {
+        _ram[28] = (int) time(NULL);
         f(_ram[0], _ram[4], _ram[8], _ram[12], _ram[20], _ram[24]);
         usleep (20000);
     }
