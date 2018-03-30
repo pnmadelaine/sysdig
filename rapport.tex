@@ -1,0 +1,58 @@
+\documentclass[a4paper,12pt,twoside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+\usepackage[margin=2cm]{geometry}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+
+\begin{document}
+
+\begin{center}
+{\Huge Systèmes digitaux}
+\end{center}
+\begin{center}
+{\Large Ecole Normale Supérieure - Département Informatique - L3 S1}
+\end{center}
+
+Groupe : Paul-Nicolas MADELAINE, Axel KUGELMANN, Antonin REITZ
+
+\section{Organisation du projet}
+
+\input{rapport_pnm.tex}
+
+\section{Horloges}
+
+\input{rapport_axel.tex}
+
+\section{Compilateur}
+
+\input{rapport_anto.tex}
+
+\section{Répartition des tâches}
+
+Chacun s'est essentiellement concentré sur une tâche particulière.
+\begin{itemize}
+\item Paul-Nicolas Madelaine a beaucoup travaillé sur la réalisation d'un bon cadre en Haskell, permettant de travailler ensuite beaucoup plus efficacement ;
+\item Axel Kugelmann a notamment réalisé l'horloge, la version rapide celle-ci étant bien optimisée ;
+\item Antonin Reitz a réalisé le compilateur et les différentes optimisations en C pour le calcul et l'affichage.
+\end{itemize}
+
+\section{Résultats}
+
+L'horloge à vitesse normale marche convenablement, il n'y a rien de particulier à dire dessus.
+[gestion des années bissextiles]
+L'horloge à vitesse maximale marche convenablement également, environ 300 000 secondes étant simulées en une véritable seconde.
+[gestion des années bissextiles]
+
+Au début de ce projet, aucun d'entre nous n'était à l'aise en Haskell, malgré de bonnes bases en OCaml, autre langage fonctionnel mais impur. (La pureté d'Haskell cause parfois quelques difficultés avec la monade IO pour afficher des valeurs, notamment lors du déboguage.)
+Nous sommes désormais tous les trois plutôt à l'aise.
+
+De plus, la structure de ce projet est telle que refaire ce projet avec une autre architecture ne nécessiterait que très peu de modifications, et celles-ci pourraient être réalisées relativement facilement. Simuler le fonctionnement entier d'une Game Boy par exemple constitue un beau projet, la fréquence du CPU d'une Game Boy étant d'environ 4 MHz (quelques centaines de milliers d'instructions par seconde étant effectivement exécutées, beaucoup d'instructions utilisant plusieurs cycles), celle du rafraîchissement du moniteur étant d'environ 60 Hz.
+
+\end{document}

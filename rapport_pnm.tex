@@ -1,0 +1,105 @@
+\subsection{Structure globale}
+
+Le projet contient cinq exécutables. Dans l'ordre, voici le nom du fichier exécutable, le fichier Haskell qui le produit et sa description :
+\begin{itemize}
+\item \texttt{simulator}, \texttt{Simulator.hs}, un simulateur de netlists ;
+\item \texttt{generator}, \texttt{Cpu.hs}, le programme qui génère la netlist du CPU ;
+\item \texttt{optimizer}, \texttt{Optimizer.hs}, un optimisateur de netliists ;
+\item \texttt{compiler}, \texttt{Compiler.hs}, le compilateur de netlisits vers C ;
+\item \texttt{assembly}, \texttt{Assembly.hs}, le compilateur d'assembleur MIPS vers une ROM.
+\end{itemize}
+
+Il y a quelques changements de convention pour la netlist, d'un point de vue syntaxique :
+\begin{itemize}
+\item \texttt{slice $i$ $j$ $x$} contient les bits de $x$ d'indices $>= i$ et $< j$ ;
+\item \texttt{ram} et \texttt{rom} ne prennent plus d'entiers en paramètre en ce qui concerne la taille de la RAM et la taille des mots, ceux-ci sont hardcodés.
+\end{itemize}
+
+L'arborescence du projet est la suivante :
+\begin{itemize}
+\item \texttt{src}
+  \begin{itemize}
+  \item \texttt{Assembly}, qui contient le code du compilateur MIPS vers un fichier qui représente une ROM qui sera chargé en ROM et exécuté par le processeur
+    \begin{itemize}
+    \item \texttt{Ast.hs}
+    \item \texttt{Compiler.hs}
+    \item \texttt{Parser.hs}
+    \end{itemize}
+
+  \item \texttt{Assembly.hs}
+  \item \texttt{Compiler.hs}
+  \item \texttt{Cpu}, le code Haskell qui va générer la netlist du CPU
+    \begin{itemize}
+    \item \texttt{Adder.hs}
+    \item \texttt{Alu.hs}
+    \item \texttt{Branch.hs}
+    \item \texttt{Control.hs}, multiplexage à partir de l'opcode
+    \item \texttt{Instr.hs}
+    \item \texttt{Memory.hs}
+    \item \texttt{Misc.hs}
+    \item \texttt{Mult.hs}, multiplication et division sur plusieurs cycles
+    \item \texttt{Nalu.hs}
+    \end{itemize}
+  \item \texttt{Cpu.hs}
+  \item \texttt{Netlist}
+    \begin{itemize}
+    \item \texttt{Ast.hs}
+    \item \texttt{Compiler.hs}, le compilateur depuis la représentation Haskell d'une Netlist vers du C
+    \item \texttt{Graph.hs}
+    \item \texttt{Jazz.hs}, le code de la monade Jazz qui permet de générer des netlists
+    \item \texttt{Opt.hs}, le code de l'optimisateur de netlists
+    \item \texttt{Parser.hs}
+    \item \texttt{Scheduler.hs}
+    \item \texttt{Show.hs}
+    \item \texttt{Simulator.hs}
+    \item \texttt{Typer.hs}
+    \end{itemize}
+  \item \texttt{Optimizer.hs}
+  \item \texttt{Simulator.hs}
+  \end{itemize}
+\end{itemize}
+
+\subsection{Compilation}
+
+Lancez la commande \texttt{make}.
+Elle génère les différents executables du projet,
+notamment \texttt{clock\_exec} et \texttt{fast\_clock\_exec} qui sont les deux horloges.
+
+\subsection{Jazz}
+
+Jazz est notre monade pour générer des netlist, elle remplace MiniJazz.
+On implémente deux types importants : Bit et Wire, qui représentent les fils et les nappes de fils.
+Ainsi, on peut écrire le type du combinateur qui génère une porte AND :\\
+  (/\textbackslash) {\hspace{0.5em}}:{\hspace{-1em}}:{\hspace{0.5em}} Bit $\rightarrow$ Bit $\rightarrow$ Jazz Bit
+\newline
+On a en fait enrichi ce modèle en créant des type class Bt et Wr associées aux deux types :\\
+  (/\textbackslash) {\hspace{0.5em}}:{\hspace{-1em}}:{\hspace{0.5em}} (Bt $a$, Bt $b$) $\implies$ $a$ $\rightarrow$ $b$ $\rightarrow$ Jazz Bit
+\newline
+Ce qui permet d'écrire des choses telles que :\\
+  $x$ $\leftarrow$ $a$ /\textbackslash ($b$ /\textbackslash $c$)
+
+Le module Cpu.Control illustre bien la puissance de Jazz :
+on implémente une structure qui contient un champ pour chaque instruction cpu,
+à chacune de ces insrtructions on associe un fil et on écrit une fonction opcode\_mux qui
+à partir de cette structure construit la netlist d'un multiplexer, qui sélectionnera un fil
+à partir de l'instruction décodée.
+On peut ainsi spécifier très simplement le comportement du CPU.
+Il est alors très facile d'ajouter, de retirer et de modifier des instructions au CPU.
+
+\subsection{CPU}
+
+Nous avons implémenté un sous-ensemble de MIPS.
+Une liste des instructions se trouve dans Cpu.Control.
+Nous avons notamment implémenté :
+\begin{itemize}
+\item les opérations binaires "élémentaires" (sauf XOR, qui n'était pas dans le standard) ;
+\item l'addition et la soustraction ;
+\item les jumps ;
+\item des branchements conditionnels ;
+\item la division et la multiplication sur plusieurs cycles.
+\end{itemize}
+Elles ne sont cependant pas encore toutes implémentées, ou tout du moins elles ne vérifient
+pas encore toutes la sémantique de MIPS.
+Les instructions de lecture/écriture en RAM notamment ont un comportement assez mal défini pour
+le moment. De même, la division et la multiplication ne fonctionnent que pour des entiers
+non signés.

@@ -1,0 +1,44 @@
+Le but d'avoir un compilateur du format netlist vers le C est de bénéficier de toute la rapidité du C, notamment en compilant ensuite avec GCC avec le degré d'optimisation maximal (Ofast).
+
+On pourrait d'ailleurs davantage parler de \og traducteur \fg{} que de compilateur de netlists vers du C, la compilation étant réalisée d'un langage de bas niveau à un autre langage de bas niveau, assez semblables.
+
+Deux classes d'optimisations différentes sont réalisées :
+\begin{itemize}
+\item des optimisations liées à l'efficacité du code à exécuter ;
+\item des optimisations liées à l'affichage de ce que produit ce code.
+\end{itemize}
+
+\subsection{Optimisations du code}
+
+\subsubsection{Optimisations réalisées}
+
+Les constantes sont remplacées autant que possible, il s'agit d'un simple \textit{inlining}. Les opérations entre constantes ne sont pas effectuées en Haskell pour que le résultat soit remplacé dans le fichier C généré, ce qui pourrait être une source supplémentaire d'optimisation.
+
+Toutes les valeurs manipulables et accessibles par la netlist sont encodées par des entiers de 64 bits.
+Ce qui permet ceci et ce qui permet les optimisations détaillées plus bas est que les opérations de sélection (\texttt{select} ou \texttt{slice}) ont déjà été vérifiées pour que ne soit accessible que ce qui doit l'être.
+
+Toutes les opérations binaires (ainsi que le \texttt{mux} sont traduites vers les opérations binaires équivalentes. Trois cas sont plus particuliers : les \texttt{select}, \texttt{slice} et \texttt{concat} :
+\begin{itemize}
+\item l'opération \texttt{select} $i$ $a$ consiste à effectuer un shift vers la droite de $i$, ce qui est correct d'après ce qui a été dit dans le paragraphe précédent ;
+\item l'opération \texttt{slice} $i$ $j$ $a$ consiste à effectuer également un shift vers la droite de $i$, ce qui est correct par les mêmes arguments ;
+\item l'opération de concaténation est réalisée en utilisant un \textit{bitmask} et un shift vers la gauche adaptés.
+\end{itemize}
+
+\subsubsection{D'autres pistes}
+
+Parmi les optimisations non réalisées, il y a le fait de choisir une représentation mémoire adaptée à la taille du nombre : stocker 1 bit sur 64 bits n'est pas le plus efficace qui soit. \\
+Néanmoins, une telle optimisation amène à beaucoup d'autres, notamment à la concaténation des valeurs de faible longueur pour effectuer plusieurs instructions sur un seul cycle (on peut imaginer l'exécution de 64 instructions de même nature concernant des booléens effectuées en un seul cycle).
+
+
+On peut également imaginer, encore à un tout autre niveau de complexité, l'exécution en parallèle de certaines instructions. En somme, on peut imaginer d'implémenter toutes les optimisations \og classiques \fg{} présentes sur les processeurs modernes.
+
+\subsection{Optimisations de l'affichage}
+
+L'optimisation décrite n'est utile que dans le cas de l'horloge dont la vitesse de défilement doit être maximale.
+Afficher une valeur à chaque seconde simulée est coûteux.
+La programmation parallèle a donc été utilisée, un \textit{thread} étant chargé de la simulation de l'horloge, un autre \textit{thread} étant chargé de l'afficher à intervalles réguliers. La période choisie empiriquement est de 20 ms, correspondant à une fréquence de 50 Hz, ce qui paraît raisonnable compte tenu de la fréquence de rafraîchissement de la plupart des moniteurs actuellement sur le marché.
+
+\subsection{Limites}
+
+Actuellement, la compilation n'est pas très générale, au sens où le format de l'affichage est fixé - calqué sur celui d'une horloge - et ne dépend pas d'un quelconque paramètre.
+Ainsi, on pourrait imaginer que les netlists spécifient la forme de l'affichage (au-delà de ce qui doit être affiché ou non), ou que des options adaptées à la compilation rendent le tout flexible.
