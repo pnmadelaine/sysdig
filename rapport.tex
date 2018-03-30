@@ -45,10 +45,13 @@ Chacun s'est essentiellement concentré sur une tâche particulière.
 
 \section{Résultats}
 
-L'horloge à vitesse normale marche convenablement, il n'y a rien de particulier à dire dessus.
-[gestion des années bissextiles]
-L'horloge à vitesse maximale marche convenablement également, environ 300 000 secondes étant simulées en une véritable seconde.
-[gestion des années bissextiles]
+[Les résultats en eux-mêmes sont susceptibles d'être modifiées compte tenu de l'actuelle mise à jour des fichiers horloge, lors de la démonstration tout était fonctionnel, mais suite à des modifications ultérieures :
+\begin{itemize}
+\item l'horloge à vitesse de défilement normale fonctionne mais ne charge plus le timestamp actuel ;
+\item l'horloge à vitesse de défilement maximale fonctionne mais moins vite que lors de la présentation - environ 300 000 secondes simulées par seconde.
+\end{itemize}
+Les deux sont liées à la volonté d'avoir des horloges respectant toutes les vitesses de défilement.
+Le nombre d'instructions exécutées par seconde reste de l'ordre du MHz.]
 
 Au début de ce projet, aucun d'entre nous n'était à l'aise en Haskell, malgré de bonnes bases en OCaml, autre langage fonctionnel mais impur. (La pureté d'Haskell cause parfois quelques difficultés avec la monade IO pour afficher des valeurs, notamment lors du déboguage.)
 Nous sommes désormais tous les trois plutôt à l'aise.
