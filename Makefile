@@ -10,6 +10,8 @@ all:
 	./assembly clock.s
 	./assembly fast_clock.s
 	./assembly incr.s
+	./assembly horloge_basique.s
+	./assembly real_time_horloge.s
 	./compiler cpu_opt.net clock
 	mv cpu_opt.c main1.c
 	gcc main1.c -o clock_exec -w -Ofast -pthread -lpthread
