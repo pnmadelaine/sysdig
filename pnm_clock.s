@@ -122,7 +122,7 @@ end:
   addu  $t3, $t3, $at
   sw    $t0, $zero, 0
   sw    $t1, $zero, 4
-  sw    $t2, $zero, 8 
+  sw    $t2, $zero, 8
   sw    $t3, $zero, 12
   sw    $t4, $zero, 20
   sw    $t5, $zero, 24
