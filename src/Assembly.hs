@@ -11,6 +11,8 @@ import Assembly.Ast
 import Assembly.Parser
 import Assembly.Compiler
 
+import Data.Map ((!))
+
 handle_assembly :: String -> IO ()
 handle_assembly name = do
   code <- readFile name

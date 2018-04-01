@@ -206,5 +206,6 @@ handle_ram instr addr dt = do
 
                             , op_nop     = zero32
                             }
+
   opcode_mux instr read_mux
 

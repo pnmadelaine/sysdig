@@ -87,10 +87,10 @@ parse_r_instr = do op <- choice (List.map (try . symbol) r_instr)
                                                                   return $ Rexpr opcode reg_zero reg_zero d reg_zero funct
                        aux op | op == "sll" || op == "srl" = do d <- register
                                                                 symbol ","
-                                                                s <- register
+                                                                t <- register
                                                                 symbol ","
                                                                 shamt <- immediate 5
-                                                                return $ Rexpr opcode s reg_zero d shamt funct
+                                                                return $ Rexpr opcode reg_zero t d shamt funct
                        aux "sra" = do d <- register
                                       symbol ","
                                       t <- register

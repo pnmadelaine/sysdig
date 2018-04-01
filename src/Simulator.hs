@@ -91,7 +91,7 @@ get_n (_:os) = get_n os
 
 get_ram [] = return Map.empty
 get_ram ((LoadRam path):_) = read_ram_file path
-get_ram (_:os) = get_rom os
+get_ram (_:os) = get_ram os
 
 get_rom [] = return Map.empty
 get_rom ((LoadRom path):_) = read_ram_file path

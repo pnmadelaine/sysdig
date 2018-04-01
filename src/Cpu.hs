@@ -20,7 +20,6 @@ cpu = do init_registers
 netlist0 = build_netlist cpu
 netlist = netlist0 { netlist_out = List.tail registers_names ++ ["pc", "hi", "lo"] }
 
-
 main :: IO ()
 main = writeFile "cpu.net" $ show netlist
 

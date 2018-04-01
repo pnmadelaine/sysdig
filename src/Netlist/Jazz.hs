@@ -3,7 +3,8 @@
 
 module Netlist.Jazz where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
+import Data.Map ((!))
 import qualified Data.List as List
 import qualified Data.Set as Set
 
@@ -51,6 +52,12 @@ class Wr a where
 
 wire_size :: Wr a => a -> Jazz Integer
 wire_size x = wire x >>= (\(Wire(n,_)) -> return n)
+
+var :: Ident -> Jazz Wire
+var id = do s <- get
+            let n = netmap_sizes s ! id
+            return $ Wire (n, ArgVar id)
+
 
 input :: Ident -> Integer -> Jazz Wire
 input id n = do s <- get
@@ -189,8 +196,8 @@ wire_of_integer (n, i) =
         bar 0 _ = []
         bar n x = (mod x 2 == 1):(bar (n-1) (div x 2))
 
-wire_of_bool_list :: [Bool] -> Wire
-wire_of_bool_list l = Wire (List.genericLength l, ArgCst l)
+--wire_of_bool_list :: [Bool] -> Wire
+--wire_of_bool_list l = Wire (List.genericLength l, ArgCst l)
 
 instance Wr (Integer, Integer) where
   bits x = bits (wire_of_integer x)
@@ -201,13 +208,9 @@ instance Wr a => Wr (Jazz a) where
   wire x = x >>= wire
 instance Bt a => Wr [a] where
   bits x = mapM bit x
-  wire x = do l <- mapM bit x
-              let aux (Wire (n,a)) (Bit b) =
-                    do id <- create_wire (Econcat b a)
-                       return $ Wire ((n+1), (ArgVar id))
-              case l of
-                []         -> return $ Wire (0, ArgCst [])
-                (Bit x):xs -> foldM aux (Wire (1, x)) xs
+  wire x = do l0 <- mapM bit x
+              l1 <- mapM (\(Bit y) -> return $ Wire (1, y)) l0
+              foldM conc (List.head l1) (List.tail l1)
 
 squeeze :: Wr a => a -> Jazz [Bit]
 squeeze = bits . wire
