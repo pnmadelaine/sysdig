@@ -4,17 +4,17 @@ main :
 
   li    $a0, 60
   divu  $at, $a0
-  mfhi  $t0
+  mfhi  $s0
   mflo  $at
   divu  $at, $a0
-  mfhi  $t1
+  mfhi  $s1
   mflo  $at
   li    $a0, 24
   divu  $at, $a0
-  mfhi  $t2
+  mfhi  $s2
   mflo  $at
 
-  li    $t5, 1
+  li    $s5, 1
 
   li    $a0, 10
   sll   $a0, $a0, 16
@@ -29,8 +29,12 @@ main :
   mflo  $v0
   li    $v1, 400
   multu $v0, $v1
-  mflo  $t6
-  addu  $t5, $t5, $t6
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 2
+  sll   $a0, $a0, 16
+  ori   $a0, $a0, 14623
+  sltu  $t1, $a0, $at
 
   ori   $a0, $zero, 36524
   divu  $at, $a0
@@ -38,8 +42,10 @@ main :
   mflo  $v0
   li    $v1, 100
   multu $v0, $v1
-  mflo  $t6
-  addu  $t5, $t5, $t6
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 36159
+  sltu  $t2, $a0, $at
 
   li    $a0, 1461
   divu  $at, $a0
@@ -47,85 +53,93 @@ main :
   mflo  $v0
   li    $v1, 4
   multu $v0, $v1
-  mflo  $t6
-  addu  $t5, $t5, $t6
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 1095
+  li    $a0, 1095
+  sltu  $t3, $a0, $at
 
   li    $a0, 365
   divu  $at, $a0
   mfhi  $at
-  mflo  $t6
-  addu  $t5, $t5, $t6
+  mflo  $t0
+  addu  $s5, $s5, $t0
 
-  sltiu $a0, $t6, 1
+
+  nor   $a0, $t2, $zero
+  and   $a0, $a0, $t3
+  or    $a0, $a0, $t1
+
   addiu $a0, $a0, 28
   li    $a1, 31
   li    $a2, 30
-  li    $t4, 1
+
+  li    $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a0
   bne   $v0, $zero, end
   subu  $at, $at, $a0
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a2
   bne   $v0, $zero, end
   subu  $at, $at, $a2
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a2
   bne   $v0, $zero, end
   subu  $at, $at, $a2
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a2
   bne   $v0, $zero, end
   subu  $at, $at, $a2
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a1
   bne   $v0, $zero, end
   subu  $at, $at, $a1
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
   sltu  $v0, $at, $a2
   bne   $v0, $zero, end
   subu  $at, $at, $a2
-  addiu $t4, $t4, 1
+  addiu $s4, $s4, 1
 
 end:
-  li    $t3, 1
-  addu  $t3, $t3, $at
-  sw    $t0, $zero, 0
-  sw    $t1, $zero, 4
-  sw    $t2, $zero, 8
-  sw    $t3, $zero, 12
-  sw    $t4, $zero, 20
-  sw    $t5, $zero, 24
+  li    $s3, 1
+  addu  $s3, $s3, $at
+  sw    $s0, $zero, 0
+  sw    $s1, $zero, 4
+  sw    $s2, $zero, 8
+  sw    $s3, $zero, 12
+  sw    $s4, $zero, 20
+  sw    $s5, $zero, 24
 
   j     main
 

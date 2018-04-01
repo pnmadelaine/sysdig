@@ -17,7 +17,11 @@
 void* threadPrinter (int* _ram)
 {
     while(1) {
-        _ram[28] = (int) time(NULL);
+        int t0 = (int) time(NULL);
+        _ram[28] = t0 & 255;
+        _ram[29] = (t0 >> 8) & 255;
+        _ram[30] = (t0 >> 16) & 255;
+        _ram[31] = (t0 >> 24) & 255;
         f(_ram[0], _ram[4], _ram[8], _ram[12], _ram[20], _ram[24]);
         usleep (20000);
     }
@@ -27,4 +31,4 @@ void* threadPrinter (int* _ram)
 
 void* threadSimulator (int* _ram)
 {
-	long int _n = 100000000;
+	long int _n = -1;
