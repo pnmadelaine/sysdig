@@ -1,176 +1,144 @@
-main:
-  j gettime
-  
-gettime:
-  lw $at,$zero,28
-  li $t0,0
-  li $t1,0
-  li $t2,0
-  li $t3,1
-  li $t4,3
-  li $t5,1
-  li $t6,1970
-  
-  lui $ra, 1926
-  addiu $ra,$ra,8064
-  divu $at,$ra
-  mflo $a1
-  sll $ra,$a1,2
-  addu $t6,$t6,$ra
-  
-  mfhi $fp
-  lui $ra, 481
-  addiu $ra,$ra,13184
-  divu $fp,$ra
-  mflo $a2
-  addu $t6,$t6,$a2 
-    
-  mfhi $ra
-  subu $fp,$at,$ra
-  
-  li $ra,5
-  multu $ra,$a1
-  mflo $ra
-  addu $t4,$t4,$ra  
-  addu $t4,$t4,$a2
-  
-  li $ra,7
-  divu $t4,$ra
-  mfhi $t4
-  
-  j init
-  
-  
-init:
-  sw $t3,$zero,12
-  sw $t5,$zero,20
-  sw $t6,$zero,24
+main :
 
-  li $a0,60
-  li $a1,24
-  li $a2, 7
-  
-  li $v0, 29
-  li $v1, 30
-  li $k0, 31
-  li $k1, 32
-  
-  li $a3,13
-  
-  li $sp,100
-  
-  j second
+  lw    $at, $zero, 28
 
-second:
-  lw $at,$zero,28
-  beq $at,$fp,second
+  li    $a0, 60
+  divu  $at, $a0
+  mfhi  $s0
+  mflo  $at
+  divu  $at, $a0
+  mfhi  $s1
+  mflo  $at
+  li    $a0, 24
+  divu  $at, $a0
+  mfhi  $s2
+  mflo  $at
 
-  addiu $fp,$fp,1
-  addiu $t0,$t0,1
-  beq $t0,$a0,minute
-  sw $t0,$zero,0
-  j second
-  
-  
-minute:
-  li $t0,0
-  sw $t0,$zero,0
-  addiu $t1,$t1,1
-  beq $t1,$a0,hour
-  sw $t1,$zero,4
-  j second
-  
-hour:
-  li $t1,0
-  sw $t1,$zero,4
-  addiu $t2,$t2,1
-  beq $t2,$a1,day
-  sw $t2,$zero,8
-  j second
-  
-day:
-  li $t2,0  
-  sw $t2,$zero,8
-  addiu $t4,$t4,1 
+  li    $s5, 1
 
-  addiu $t3,$t3,1
-  sw $t3,$zero,12
+  li    $a0, 10
+  sll   $a0, $a0, 16
+  ori   $a0, $a0, 63802
+  addu  $at, $at, $a0
 
-  beq $t4,$a2,week  
-  sw $t4,$zero,16
-  j machin
+  li    $a0, 2
+  sll   $a0, $a0, 16
+  ori   $a0, $a0, 15025
+  divu  $at, $a0
+  mfhi  $at
+  mflo  $v0
+  li    $v1, 400
+  multu $v0, $v1
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 2
+  sll   $a0, $a0, 16
+  ori   $a0, $a0, 14623
+  sltu  $t1, $a0, $at
 
-week:
-  li $t4,0  
-  sw $t4,$zero,16
-  j machin
+  ori   $a0, $zero, 36524
+  divu  $at, $a0
+  mfhi  $at
+  mflo  $v0
+  li    $v1, 100
+  multu $v0, $v1
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 36159
+  sltu  $t2, $at, $a0
 
-machin:
-  li $ra,1
-  beq $ra,$t5,nd_31
-  li $ra,2
-  beq $ra,$t5,nd_fevrier
-  li $ra,3
-  beq $ra,$t5,nd_31
-  li $ra,4
-  beq $ra,$t5,nd_30
-  li $ra,5
-  beq $ra,$t5,nd_31
-  li $ra,6
-  beq $ra,$t5,nd_30
-  li $ra,7
-  beq $ra,$t5,nd_31
-  li $ra,8
-  beq $ra,$t5,nd_31
-  li $ra,9
-  beq $ra,$t5,nd_30
-  li $ra,10
-  beq $ra,$t5,nd_31
-  li $ra,11
-  beq $ra,$t5,nd_30
-  li $ra,12
-  beq $ra,$t5,nd_31
-  
-nd_30:
-  beq $t3,$k0,month
-  j second
-  
-nd_31:
-  beq $t3,$k1,month
-  j second
-  
-nd_fevrier:
+  li    $a0, 1461
+  divu  $at, $a0
+  mfhi  $at
+  mflo  $v0
+  li    $v1, 4
+  multu $v0, $v1
+  mflo  $t0
+  addu  $s5, $s5, $t0
+  li    $a0, 1095
+  sltu  $t3, $a0, $at
 
-  beq $t3,$v1,month
-  bne $t3,$v0,second
+  li    $a0, 365
+  divu  $at, $a0
+  mfhi  $at
+  mflo  $t0
+  addu  $s5, $s5, $t0
 
-  andi $ra,$t6,3
-  beq $ra,$zero,bissextile
-  j month
-  
-bissextile:
-  divu $t6,$sp
-  mfhi $ra
-  beq $ra,$zero,cent_bissextile
-  j second
-  
-cent_bissextile:
-  mflo $ra
-  andi $ra,$ra,3
-  beq $ra,$zero,second
-  j month
-  
-month:
-  li $t3,1
-  sw $t3,$zero,12
-  addiu $t5,$t5,1
-  beq $t5,$a3,year
-  sw $t5,$zero,20
-  j second
-  
-year:
-  li $t5,1
-  sw $t5,$zero,20
-  addiu $t6,$t6,1  
-  sw $t6,$zero,24
-  j second
+
+  or    $a0, $t2, $zero
+  and   $a0, $a0, $t3
+  or    $a0, $a0, $t1
+
+  addiu $a0, $a0, 28
+  li    $a1, 31
+  li    $a2, 30
+
+  li    $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a0
+  bne   $v0, $zero, end
+  subu  $at, $at, $a0
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a2
+  bne   $v0, $zero, end
+  subu  $at, $at, $a2
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a2
+  bne   $v0, $zero, end
+  subu  $at, $at, $a2
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a2
+  bne   $v0, $zero, end
+  subu  $at, $at, $a2
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a1
+  bne   $v0, $zero, end
+  subu  $at, $at, $a1
+  addiu $s4, $s4, 1
+
+  sltu  $v0, $at, $a2
+  bne   $v0, $zero, end
+  subu  $at, $at, $a2
+  addiu $s4, $s4, 1
+
+end:
+  li    $s3, 1
+  addu  $s3, $s3, $at
+  sw    $s0, $zero, 0
+  sw    $s1, $zero, 4
+  sw    $s2, $zero, 8
+  sw    $s3, $zero, 12
+  sw    $s4, $zero, 20
+  sw    $s5, $zero, 24
+
+  j     main
+
