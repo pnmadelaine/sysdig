@@ -33,10 +33,10 @@ main :
   addu  $s5, $s5, $t0
   li    $a0, 2
   sll   $a0, $a0, 16
-  ori   $a0, $a0, 14623
+  ori   $a0, $a0, 14659
   sltu  $t1, $a0, $at
 
-  ori   $a0, $zero, 36524
+  li    $a0, 36524
   divu  $at, $a0
   mfhi  $at
   mflo  $v0
@@ -141,4 +141,3 @@ end:
   sw    $s5, $zero, 24
 
   j     main
-

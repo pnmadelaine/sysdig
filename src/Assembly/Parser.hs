@@ -62,7 +62,7 @@ parse_instr = parse_i_instr
                  t <- register
                  symbol ","
                  i <- immediate 16
-                 return $ Iexpr (chb 0 8) reg_zero t i
+                 return $ Iexpr (chb 0 13) reg_zero t i
           <|> lab
 
 ---gestion des labels---

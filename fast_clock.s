@@ -2,8 +2,9 @@
   lw    $a3, $zero, 28
 
 main :
+
   addiu $a3, $a3, 1
-  addu  $at, $a3, $zero
+  move  $at, $a3
 
   li    $a0, 60
   divu  $at, $a0
@@ -36,10 +37,10 @@ main :
   addu  $s5, $s5, $t0
   li    $a0, 2
   sll   $a0, $a0, 16
-  ori   $a0, $a0, 14623
+  ori   $a0, $a0, 14659
   sltu  $t1, $a0, $at
 
-  ori   $a0, $zero, 36524
+  li    $a0, 36524
   divu  $at, $a0
   mfhi  $at
   mflo  $v0
@@ -143,7 +144,4 @@ end:
   sw    $s4, $zero, 20
   sw    $s5, $zero, 24
 
-  
-
   j     main
-
